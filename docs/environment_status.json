@@ -1,0 +1,323 @@
+{
+  "timestamp": "2026-04-02 20:49:11",
+  "results": [
+    {
+      "status": "OK",
+      "component": "Windows Version",
+      "detail": "Microsoft Windows 11 Home",
+      "version": "Build 26200"
+    },
+    {
+      "status": "OK",
+      "component": "Windows 11 Check",
+      "detail": "Build compatibile con Windows 11",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "Python",
+      "detail": "Disponibile",
+      "version": "3.12.7"
+    },
+    {
+      "status": "WARNING",
+      "component": "Python 3.11 Target",
+      "detail": "Versione trovata: 3.12.7 (target: 3.11.x)",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "Python Path",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "pip",
+      "detail": "Disponibile",
+      "version": "26.0.1"
+    },
+    {
+      "status": "OK",
+      "component": "venv",
+      "detail": "Modulo venv disponibile",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "Node.js",
+      "detail": "Disponibile",
+      "version": "v25.1.0"
+    },
+    {
+      "status": "OK",
+      "component": "npm",
+      "detail": "Disponibile",
+      "version": "11.6.2"
+    },
+    {
+      "status": "OK",
+      "component": "Git",
+      "detail": "Disponibile",
+      "version": "2.53.0.windows.1"
+    },
+    {
+      "status": "OK",
+      "component": "Ollama Binary",
+      "detail": "Disponibile",
+      "version": "ollama version is 0.18.0"
+    },
+    {
+      "status": "OK",
+      "component": "Ollama API",
+      "detail": "Server risponde, modelli trovati: 4",
+      "version": ""
+    },
+    {
+      "status": "WARNING",
+      "component": "PyTorch",
+      "detail": "Non installato (non richiesto in questa fase)",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\nodejs\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\pnpm",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python311\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python311\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Ollama",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "c:\\users\\tony1\\appdata\\roaming\\python\\python313\\scripts",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\GitHubDesktop\\bin",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Roaming\\npm",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\nodejs\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\pnpm",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python311\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python311\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Ollama",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "c:\\users\\tony1\\appdata\\roaming\\python\\python313\\scripts",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\GitHubDesktop\\bin",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Roaming\\npm",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\nodejs\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\Git\\cmd",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\Git\\bin",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\Git\\bin",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python313\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\pnpm",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python312\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python311\\Scripts\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Python\\Python311\\",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\Programs\\Ollama",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "c:\\users\\tony1\\appdata\\roaming\\python\\python313\\scripts",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\nodejs",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Local\\GitHubDesktop\\bin",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Users\\tony1\\AppData\\Roaming\\npm",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\Git\\bin",
+      "version": ""
+    },
+    {
+      "status": "OK",
+      "component": "PATH",
+      "detail": "C:\\Program Files\\Git\\bin",
+      "version": ""
+    }
+  ],
+  "problems": {
+    "problem": "Python 3.12.7 trovato, ma il target e' 3.11.x",
+    "suggestion": "Installa Python 3.11 da python.org o usa pyenv-win"
+  },
+  "summary": {
+    "ok": 49,
+    "fail": 0,
+    "skip": 0,
+    "warning": 2
+  },
+  "user": "tony1",
+  "machine": "TONY"
+}
