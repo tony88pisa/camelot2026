@@ -70,11 +70,7 @@ class BrainRuntime:
             payload={"error_msg": str(e), "fatal": fatal}
         )
         
-        try:
-            res = transition(self.state, BrainEventType.OBSERVATION_FAILED, self.ctx)
-            self.state.phase = res.next_phase
-        except:
-            self.state.phase = BrainPhase.ERROR
+        self.state.phase = BrainPhase.ERROR
 
     def step(self):
         """
@@ -116,8 +112,11 @@ class BrainRuntime:
                 if dec.ok and dec.status == "buy_candidate":
                     self._emit_transition(BrainEventType.ANALYSIS_OK)
                 else:
-                    # Hold o Skip
+                    # Hold o Skip fallbacks
                     self.state.buffer_memory["action"] = dec.action
+                    self.state.buffer_memory["skip_reason"] = dec.reason_codes
+                    self.state.buffer_memory["skip_status"] = dec.status
+                    self.state.buffer_memory["skip_confidence"] = getattr(dec, "confidence", 0.0)
                     self._emit_transition(BrainEventType.ANALYSIS_FAILED)
 
             elif p == BrainPhase.PROPOSE:
@@ -129,7 +128,47 @@ class BrainRuntime:
                     self._emit_transition(BrainEventType.PROPOSAL_BLOCKED)
 
             elif p == BrainPhase.GUARDRAIL_CHECK:
-                self._emit_transition(BrainEventType.PROPOSAL_READY) # Force check into EXEC
+                dec = self.state.buffer_memory.get("strategy_decision")
+                if not dec or not dec.intent_preview:
+                    self._emit_transition(BrainEventType.PROPOSAL_BLOCKED)
+                    return
+                    
+                if self.ctx.guardrail_engine:
+                    from ai_trader.risk.policy_models import TradeIntent, PortfolioState, SystemState, MarketState
+                    ip = dec.intent_preview
+                    prop_qty = float(ip.get("proposed_quantity", 0.0))
+                    prop_not = float(ip.get("proposed_notional", 0.0))
+                    price = self.state.buffer_memory.get("market_price", 0.0)
+                    if prop_qty <= 0 and prop_not > 0 and price > 0:
+                        prop_qty = prop_not / price
+                    elif prop_not <= 0 and prop_qty > 0 and price > 0:
+                        prop_not = prop_qty * price
+
+                    ti = TradeIntent(
+                        symbol=ip.get("symbol", ""), side=ip.get("side", ""),
+                        proposed_notional=prop_not, proposed_quantity=prop_qty,
+                        signal_quality=ip.get("signal_quality", 0.0), timestamp=ip.get("timestamp", self.ctx.now_fn()),
+                        regime=ip.get("regime", "normal"), volatility_score=ip.get("volatility_score", 0.0),
+                        source_agent=ip.get("source_agent", "brain"), thesis=ip.get("thesis", "")
+                    )
+                    
+                    wallet_val = getattr(self.ctx.settings, "INITIAL_CAPITAL", 10000.0)
+                    if self.ctx.exchange_adapter and hasattr(self.ctx.exchange_adapter, "get_account_snapshot"):
+                        snap = self.ctx.exchange_adapter.get_account_snapshot()
+                        if snap.get("ok"):
+                            wallet_val = float(snap.get("total_wallet_value", wallet_val))
+
+                    g_dec = self.ctx.guardrail_engine.evaluate_trade_intent(
+                        ti, PortfolioState(wallet_val,0,0,{}), SystemState(0,0,0.0,0.0), MarketState(True,True,ti.symbol,price,0.0,"normal")
+                    )
+                    self.state.buffer_memory["guardrail_result"] = g_dec
+                    if g_dec.allowed:
+                        self._emit_transition(BrainEventType.PROPOSAL_READY)
+                    else:
+                        self.state.buffer_memory["action"] = "GUARDRAIL_BLOCKED"
+                        self._emit_transition(BrainEventType.PROPOSAL_BLOCKED)
+                else:
+                    self._emit_transition(BrainEventType.PROPOSAL_READY)
 
             elif p == BrainPhase.EXECUTION_PREVIEW:
                 dec = self.state.buffer_memory.get("strategy_decision")

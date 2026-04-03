@@ -3101,3 +3101,13 @@
 {"timestamp": "2026-04-03T00:17:40.280560+00:00", "level": "INFO", "module": "strategy_engine", "message": "Valutazione Segnale", "extra": {"symbol": "BTCUSDT", "sq": 0.9}}
 {"timestamp": "2026-04-03T00:17:40.281557+00:00", "level": "INFO", "module": "strategy_engine", "message": "StrategyPolicyEngine allocato"}
 {"timestamp": "2026-04-03T00:17:40.281557+00:00", "level": "INFO", "module": "strategy_engine", "message": "Valutazione Segnale", "extra": {"symbol": "BTCUSDT", "sq": 0.9}}
+{"timestamp": "2026-04-03T06:12:18.170654+00:00", "level": "INFO", "module": "risk_guardrail", "message": "GuardrailEngine allocato", "extra": {"policy_mode": "testnet"}}
+{"timestamp": "2026-04-03T06:12:18.170654+00:00", "level": "INFO", "module": "exec_preview", "message": "ExecutionPreviewEngine online"}
+{"timestamp": "2026-04-03T06:12:35.085824+00:00", "level": "INFO", "module": "risk_guardrail", "message": "GuardrailEngine allocato", "extra": {"policy_mode": "testnet"}}
+{"timestamp": "2026-04-03T06:12:35.085824+00:00", "level": "INFO", "module": "exec_preview", "message": "ExecutionPreviewEngine online"}
+{"timestamp": "2026-04-03T06:12:35.086824+00:00", "level": "INFO", "module": "risk_guardrail", "message": "Evaluazione Intent avviata", "extra": {"symbol": "BTCUSDT", "side": "BUY", "notional": 2000.0}}
+{"timestamp": "2026-04-03T06:12:35.086824+00:00", "level": "INFO", "module": "risk_guardrail", "message": "Guardrail Checked", "extra": {"symbol": "BTCUSDT", "allowed": false, "reasons": ["SINGLE_POSITION_LIMIT", "LOW_SIGNAL_QUALITY"]}}
+{"timestamp": "2026-04-03T06:12:56.594352+00:00", "level": "INFO", "module": "risk_guardrail", "message": "GuardrailEngine allocato", "extra": {"policy_mode": "testnet"}}
+{"timestamp": "2026-04-03T06:12:56.595357+00:00", "level": "INFO", "module": "exec_preview", "message": "ExecutionPreviewEngine online"}
+{"timestamp": "2026-04-03T06:12:56.595357+00:00", "level": "INFO", "module": "risk_guardrail", "message": "Evaluazione Intent avviata", "extra": {"symbol": "BTCUSDT", "side": "BUY", "notional": 2000.0}}
+{"timestamp": "2026-04-03T06:12:56.596354+00:00", "level": "INFO", "module": "risk_guardrail", "message": "Guardrail Checked", "extra": {"symbol": "BTCUSDT", "allowed": false, "reasons": ["SINGLE_POSITION_LIMIT", "LOW_SIGNAL_QUALITY"]}}

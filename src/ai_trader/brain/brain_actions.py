@@ -68,14 +68,21 @@ def analyze_symbol(ctx: BrainContext, symbol: str, price: float) -> Any:
     if not ctx.strategy_engine:
         raise RuntimeError("Strategy engine off")
         
+    # TODO: Fetch these real metrics from the exchange_adapter snapshot (or market analyzer module)
+    # when fully implemented. For now using structural fallbacks.
+    trend_score = 0.5
+    volatility_score = 0.02
+    regime = "normal"
+    signal_quality = 0.7
+        
     s_in = SignalInput(
         symbol=symbol,
         price=price,
         timestamp=ctx.now_fn(),
-        trend_score=0.7, # Mocked feature in assenza di agent indicator tool
-        volatility_score=0.01,
-        regime="normal",
-        signal_quality=0.8,
+        trend_score=trend_score,
+        volatility_score=volatility_score,
+        regime=regime,
+        signal_quality=signal_quality,
         adapter_health=True,
         market_snapshot_available=True,
         memory_summary=""
@@ -89,10 +96,19 @@ def build_execution_preview(ctx: BrainContext, intent_preview: dict[str, Any], m
     if not ctx.execution_preview_engine:
         raise RuntimeError("Execution preview engine not mapped on Context")
     
-    # Create pseudo safe Context to cover tests matching 1000$ limit
+    wallet_value = getattr(ctx.settings, "INITIAL_CAPITAL", 10000.0)
+    free_quote_balance = wallet_value * 0.8  # TODO: Update with real fallback strategy
+    
+    if ctx.exchange_adapter and hasattr(ctx.exchange_adapter, "get_account_snapshot"):
+        snap = ctx.exchange_adapter.get_account_snapshot()
+        if snap.get("ok"):
+            # Update with actual values if provided by the adapter
+            wallet_value = float(snap.get("total_wallet_value", wallet_value))
+            free_quote_balance = float(snap.get("free_quote_balance", free_quote_balance))
+
     exec_cx = ExecutionContext(
-        wallet_value=10000.0,
-        free_quote_balance=8000.0,
+        wallet_value=wallet_value,
+        free_quote_balance=free_quote_balance,
         open_positions_count=0,
         current_total_exposure=0.0,
         per_symbol_exposure={},
