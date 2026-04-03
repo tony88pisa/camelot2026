@@ -1,0 +1,6 @@
+# requirements.txt
+# 2026-04-02 21:05 - Dipendenze minime del progetto AI Trader
+# Non include librerie trading/ML in questa fase
+python-dotenv>=1.0.0
+requests>=2.31.0
+pytest-mock>=3.14.0
