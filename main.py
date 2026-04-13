@@ -28,6 +28,7 @@ from ai_trader.brain.brain_runtime import BrainRuntime
 from ai_trader.brain.brain_types import BrainContext # v11.4: Import context types
 from ai_trader.memory.episode_store import EpisodeStore
 from ai_trader.core.ollama_client import OllamaClient
+from ai_trader.risk.risk_kernel import RiskKernel
 
 logger = get_logger("main_reactor")
 
@@ -257,12 +258,51 @@ class ApexReactor:
         return result
 
     async def _execute_apex_order(self, action):
-        """Esecuzione market con protezione deterministica Iron Core v12.0."""
+        """Esecuzione market con protezione deterministica Iron Core v12.0 e Risk Kernel."""
         symbol = action["symbol"]
         side = action["action"]
         raw_qty = action.get("usdt_amount") if side == "BUY" else action.get("quantity")
         
-        # 1. Pre-flight Normalizzatore (Sovereign Protection)
+        # 1. RISK KERNEL BARRIER (FASE 2 - Sovranit del Rischio)
+        # Costruzione Intento per il Tribunale Supremo
+        from ai_trader.risk.policy_models import TradeIntent, PortfolioState, SystemState
+        import time
+
+        risk_kernel = RiskKernel() 
+        
+        # Recupero Stato Portafoglio e Sistema (Snapshot)
+        # Nota: In Fase 2 usiamo dati sintetici/adapter; PaladinAgent automatizzer questo in Fase 3.
+        summary = self.adapter.get_account_summary()
+        portfolio = PortfolioState(
+            wallet_value=summary.get("total_balance", 100.0), # Fallback safety
+            current_total_exposure=summary.get("total_exposure", 0.0),
+            open_positions_count=0, # Placeholder
+            per_symbol_exposure={} # Placeholder
+        )
+        
+        system = SystemState(
+            consecutive_losses=0, # Placeholder
+            consecutive_errors=0,
+            daily_drawdown_pct=0.0,
+            weekly_drawdown_pct=0.0
+        )
+
+        intent = TradeIntent(
+            symbol=symbol,
+            side=side,
+            proposed_notional=raw_qty if side == "BUY" else (raw_qty * self.adapter.get_ticker_price(symbol).get("price", 0.0)),
+            proposed_quantity=raw_qty if side == "SELL" else 0.0,
+            signal_quality=0.90, # Default high for manual/grid triggers
+            timestamp=time.time()
+        )
+
+        risk_decision = risk_kernel.evaluate_intent(intent, portfolio, system)
+        
+        if not risk_decision.allowed:
+            logger.warning(f"RISK KERNEL BLOCK: {risk_decision.reason_codes} ({symbol} {side})")
+            return
+
+        # 2. Pre-flight Normalizzatore (Sovereign Protection - FASE 1)
         guard = self._pre_flight_check_order(symbol, side, raw_qty)
         if not guard["ok"]:
             logger.warning(f"APEX ORDER BLOCKED: {guard['error']} ({symbol} {side})")

@@ -59,9 +59,18 @@ class RiskPolicy:
     max_consecutive_losses: int = 3
     max_consecutive_errors: int = 3
     
+    # Granular Exposure Limits (Phase 2)
+    max_symbol_exposure_pct: float = 0.20 # 20% max per simbolo
+    max_total_exposure_pct: float = 0.80  # 80% max portafoglio
+    
     # Cooldown setup
     symbol_cooldown_minutes: int = 60
     system_cooldown_minutes: int = 120
+    cooldown_after_loss_streak_minutes: int = 240 # 4h pausa se streak negativa
+    
+    # Kill-Switch
+    kill_switch_enabled: bool = False
+    
     min_signal_quality: float = 0.60
 
 
@@ -73,7 +82,7 @@ class TradeIntent:
     proposed_notional: float
     proposed_quantity: float
     signal_quality: float
-    timestamp: str  # ISOFormat DateStr
+    timestamp: float  # Unix timestamp per calcoli cooldown
     
     regime: str = "neutral"
     volatility_score: float = 0.0
@@ -83,23 +92,25 @@ class TradeIntent:
 
 @dataclass
 class PortfolioState:
-    """Context snapshot del wallet."""
+    """Context snapshot del wallet per il Risk Kernel."""
     wallet_value: float
     current_total_exposure: float
     open_positions_count: int
-    per_symbol_exposure: dict[str, float]
+    per_symbol_exposure: dict[str, float] # symbol -> notional value
 
 
 @dataclass
 class SystemState:
-    """Stato organico del bot tracking health."""
+    """Stato organico del bot tracking health per il Risk Kernel."""
     consecutive_losses: int
     consecutive_errors: int
     daily_drawdown_pct: float
     weekly_drawdown_pct: float
+    session_pnl: float = 0.0
     
     system_cooldown_until: float | None = None  # Unix timestamp
     symbol_cooldowns: dict[str, float] = field(default_factory=dict) # Unix timestamps map
+    last_risk_block_reason: str | None = None
 
 
 @dataclass

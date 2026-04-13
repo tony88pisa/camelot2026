@@ -20,6 +20,7 @@ import ai_trader.logging.jsonl_logger
 ai_trader.logging.jsonl_logger.get_logger.return_value = mock_logger
 
 import pytest
+# Ora possiamo importare ApexReactor 
 from main import ApexReactor
 
 @pytest.fixture
@@ -59,11 +60,13 @@ def reactor(mock_adapter):
 class TestExecutionHardening:
 
     def test_pre_flight_buy_min_notional(self, reactor):
+        """Un ordine BUY USDT deve superare il minNotional."""
         res = reactor._pre_flight_check_order("BTCUSDT", "BUY", 5.0)
         assert res["ok"] is False
         assert "Min Notional" in res["error"]
 
     def test_pre_flight_sell_notional_after_snap(self, reactor, mock_adapter):
+        """Un ordine SELL deve essere sopra minNotional DOPO lo snapping."""
         mock_adapter.snap_quantity.return_value = 0.09
         res = reactor._pre_flight_check_order("BTCUSDT", "SELL", 0.099)
         assert res["ok"] is False
@@ -71,19 +74,44 @@ class TestExecutionHardening:
         assert res["normalized_qty"] == 0.09
 
     def test_execute_order_reconciliation_zero_fill(self, reactor, mock_adapter):
-        with patch.object(reactor, "_pre_flight_check_order", return_value={"ok": True, "normalized_qty": 50.0}):
-            mock_adapter.place_market_order.return_value = {
-                "ok": True, "executed_qty": 0.0, "avg_price": 0.0, "status": "EXPIRED"
-            }
-            action = {"symbol": "BTCUSDT", "action": "BUY", "usdt_amount": 50.0, "level_index": 0}
-            asyncio.run(reactor._execute_apex_order(action))
-            reactor.grid_engine.record_buy.assert_not_called()
+        """Se l'ordine  ok ma executed_qty  0, non registrare sulla griglia."""
+        # FARE PASSARE LA BARRIERA DI RISCHIO
+        with patch("main.RiskKernel.evaluate_intent") as mock_risk:
+            mock_risk.return_value = MagicMock(allowed=True, reason_codes=["APPROVED"])
+            
+            with patch.object(reactor, "_pre_flight_check_order", return_value={"ok": True, "normalized_qty": 50.0}):
+                mock_adapter.place_market_order.return_value = {
+                    "ok": True, "executed_qty": 0.0, "avg_price": 0.0, "status": "EXPIRED"
+                }
+                action = {"symbol": "BTCUSDT", "action": "BUY", "usdt_amount": 50.0, "level_index": 0}
+                asyncio.run(reactor._execute_apex_order(action))
+                reactor.grid_engine.record_buy.assert_not_called()
 
     def test_execute_order_success_reconciliation(self, reactor, mock_adapter):
-        with patch.object(reactor, "_pre_flight_check_order", return_value={"ok": True, "normalized_qty": 100.0}):
-            mock_adapter.place_market_order.return_value = {
-                "ok": True, "executed_qty": 100.0, "avg_price": 10.5, "status": "FILLED"
-            }
-            action = {"symbol": "BTCUSDT", "action": "BUY", "usdt_amount": 100.0, "level_index": 5}
+        """Successo: ordine eseguito e registrato con i valori reali dell'exchange."""
+        # FARE PASSARE LA BARRIERA DI RISCHIO
+        with patch("main.RiskKernel.evaluate_intent") as mock_risk:
+            mock_risk.return_value = MagicMock(allowed=True, reason_codes=["APPROVED"])
+            
+            with patch.object(reactor, "_pre_flight_check_order", return_value={"ok": True, "normalized_qty": 100.0}):
+                mock_adapter.place_market_order.return_value = {
+                    "ok": True, "executed_qty": 100.0, "avg_price": 10.5, "status": "FILLED"
+                }
+                action = {"symbol": "BTCUSDT", "action": "BUY", "usdt_amount": 100.0, "level_index": 5}
+                asyncio.run(reactor._execute_apex_order(action))
+                reactor.grid_engine.record_buy.assert_called_with("BTCUSDT", 5, 10.5, 100.0)
+
+    def test_execute_order_blocked_by_risk_kernel(self, reactor, mock_adapter):
+        """Se il Risk Kernel blocca, non chiamare nemmeno il pre-flight."""
+        with patch("main.RiskKernel.evaluate_intent") as mock_risk:
+            mock_risk.return_value = MagicMock(allowed=False, reason_codes=["RISK_BLOCK"])
+            
+            # Setup spie
+            reactor._pre_flight_check_order = MagicMock()
+            
+            action = {"symbol": "BTCUSDT", "action": "BUY", "usdt_amount": 50.0, "level_index": 0}
             asyncio.run(reactor._execute_apex_order(action))
-            reactor.grid_engine.record_buy.assert_called_with("BTCUSDT", 5, 10.5, 100.0)
+            
+            # VERIFICA: pre-flight non deve essere stato chiamato
+            reactor._pre_flight_check_order.assert_not_called()
+            mock_adapter.place_market_order.assert_not_called()
