@@ -57,11 +57,11 @@ class TestLiveReadiness:
         assert len(res["errors"]) == 0
 
     def test_gate_blocked_by_whitelist_size(self, reactor_live):
-        """Deve bloccare se la whitelist ha pi di un simbolo in staging live."""
-        reactor_live.settings.WHITELIST_PAIRS = ["BTCUSDT", "ETHUSDT"]
+        """Deve bloccare se la whitelist contiene simboli non autorizzati."""
+        reactor_live.settings.WHITELIST_PAIRS = ["BTCUSDT", "DOGEUSDT"]
         res = reactor_live._verify_live_readiness()
         assert res["ok"] is False
-        assert "WHITELIST_NOT_RESTRICTED_TO_BTCUSDT" in res["errors"]
+        assert any("WHITELIST_NOT_IN_ALLOWED_SET" in e for e in res["errors"])
 
     def test_gate_blocked_by_missing_credentials(self, reactor_live, mock_adapter):
         """Deve bloccare se mancano le API Keys."""

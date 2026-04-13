@@ -120,9 +120,11 @@ class ApexReactor:
         if not health["ok"]:
             report["errors"].append(f"EXCHANGE_UNHEALTHY: {health.get('status')}")
 
-        # 4. Whitelist Integrity (Staging Rule: BTCUSDT only for now)
-        if len(self.settings.WHITELIST_PAIRS) != 1 or "BTCUSDT" not in self.settings.WHITELIST_PAIRS:
-            report["errors"].append("WHITELIST_NOT_RESTRICTED_TO_BTCUSDT")
+        # 4. Whitelist Integrity (Night Mode: BTCUSDT + ETHUSDT only)
+        allowed_live_symbols = {"BTCUSDT", "ETHUSDT"}
+        current_symbols = set(self.settings.WHITELIST_PAIRS)
+        if not current_symbols or not current_symbols.issubset(allowed_live_symbols):
+            report["errors"].append(f"WHITELIST_NOT_IN_ALLOWED_SET:{current_symbols}")
 
         # 5. Risk Kernel & Tracker Check
         if not self.risk_kernel or not self.risk_tracker:
@@ -617,7 +619,7 @@ class ApexReactor:
 
 async def main_async():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", default="mainnet")
+    parser.add_argument("--mode", default="live")
     parser.add_argument("--interval", type=float, default=60)
     args = parser.parse_args()
     

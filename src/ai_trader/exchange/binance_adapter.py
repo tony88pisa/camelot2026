@@ -24,7 +24,7 @@ class BinanceAdapter:
         settings = get_settings()
         self.mode = mode
         
-        if mode == "mainnet":
+        if mode in ("mainnet", "live"):
             self.base_url = settings.BINANCE_MAINNET_BASE_URL.rstrip("/")
             self.api_key = settings.BINANCE_MAINNET_API_KEY
             self.api_secret = settings.BINANCE_MAINNET_API_SECRET
