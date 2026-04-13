@@ -214,25 +214,20 @@ class ApexReactor:
             return result
         result["filters"] = rules
 
-        # Se BUY via quoteOrderQty, normalizziamo il notional. Se SELL, normalizziamo la base qty.
+        # Se BUY usiamo quoteOrderQty (USDT). Se SELL normalizziamo la base qty.
         if side == "BUY":
-            # Per i BUY in questo bot usiamo quoteOrderQty (USDT)
-            # Snappiamo il prezzo se fornito (per limit) o usiamo ticker per check notional
-            current_price = price if price > 0 else self.adapter.get_ticker_price(symbol).get("price", 0.0)
-            
-            # Normalizziamo la quote (notional) - non c' regola rigida su quote precision 
-            # se non i decimali standard (2 per USDT).
+            # Normalizzazione quote (notional) - arrotondamento standard a 2 decimali per USDT
             norm_qty = round(qty, 2) 
+            result["normalized_qty"] = norm_qty
             
             # Check Min Notional
             if norm_qty < rules["minNotional"]:
                 result["error"] = f"Ordine BUY sotto Min Notional: {norm_qty} < {rules['minNotional']}"
                 return result
-                
-            result["normalized_qty"] = norm_qty
         else:
-            # SELL: Snap della base quantity
+            # SELL: Snap della base quantity tramite adapter
             norm_qty = self.adapter.snap_quantity(symbol, qty)
+            result["normalized_qty"] = norm_qty
             
             # Check Lot Size
             if norm_qty < rules["minQty"]:
@@ -245,8 +240,6 @@ class ApexReactor:
             if notional < rules["minNotional"]:
                 result["error"] = f"Ordine SELL post-snap sotto Min Notional: {notional:.2f} < {rules['minNotional']}"
                 return result
-                
-            result["normalized_qty"] = norm_qty
 
         # 4. Verifica Balance Reale Finale
         summary = self.adapter.get_account_summary()
