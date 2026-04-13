@@ -81,36 +81,95 @@ class ApexReactor:
         
         logger.info(f"ApexReactor v11.0 Inizializzato (Modo: {self.mode})")
 
-    async def boot_sequence(self):
-        """Sequenza di avvio sicura v11.0."""
-        print("[v11.0] AVVIO APEX REACTOR... (Aprile 2026 Status)")
+    def _verify_live_readiness(self) -> dict:
+        """
+        Gating di sicurezza obbligatorio per la modalit LIVE.
+        Restituisce un report di readiness con i motivi di eventuale blocco.
+        """
+        report = {"ok": True, "errors": []}
         
-        # 1. Avvio Streaming Core
+        # 1. LIVE mode check
+        if self.mode != "live":
+            # Se siamo in dry_run/testnet, i gate sono meno stringenti
+            return report
+
+        # 2. Credenziali Presence
+        if not self.adapter.api_key or not self.adapter.api_secret:
+            report["errors"].append("CREDENTIALS_MISSING")
+            
+        # 3. Exchange Health
+        health = self.adapter.health_check()
+        if not health["ok"]:
+            report["errors"].append(f"EXCHANGE_UNHEALTHY: {health.get('status')}")
+
+        # 4. Whitelist Integrity (Staging Rule: BTCUSDT only for now)
+        if len(self.settings.WHITELIST_PAIRS) != 1 or "BTCUSDT" not in self.settings.WHITELIST_PAIRS:
+            report["errors"].append("WHITELIST_NOT_RESTRICTED_TO_BTCUSDT")
+
+        # 5. Risk Kernel & Tracker Check
+        if not self.risk_kernel or not self.risk_tracker:
+            report["errors"].append("RISK_SYSTEM_NOT_INITIALIZED")
+            
+        # 6. Budget Integrity (Settled Balance only)
+        summary = self.adapter.get_account_summary()
+        current_balance = summary.get("free_quote_balance", 0.0)
+        if current_balance <= 0:
+            report["errors"].append("ZERO_SETTLED_BALANCE")
+
+        if report["errors"]:
+            report["ok"] = False
+        
+        return report
+
+    def _apply_capital_discipline(self, budget: float) -> float:
+        """Applica i limiti di sicurezza al budget live (v12.0)."""
+        if self.mode == "live":
+            # Cap a 24 EUR (approx 25 USDT) o 50% saldo (il minore)
+            max_allowed = min(budget * 0.5, 25.0)
+            logger.info(f"CAPITAL GUARD: Live budget capped at {max_allowed:.2f} USDT")
+            return max_allowed
+        return budget
+
+    async def boot_sequence(self):
+        """Sequenza di avvio sicura v12.0 con Live Readiness Gate."""
+        print(f"[v12.0] AVVIO APEX REACTOR... (Mode: {self.mode})")
+        
+        # 1. Inizializzazione Risk Kernel
+        self.risk_kernel = RiskKernel()
+
+        # 2. Avvio Streaming Core
         await self.streamer.start()
         
-        # 2. Sottoscrizione Pairs (Whitelist)
+        # 3. Sottoscrizione Pairs (Whitelist)
         whitelist = self.settings.WHITELIST_PAIRS
         for symbol in whitelist:
             await self.streamer.subscribe_depth(symbol)
             
-        # 3. Sincronizzazione Saldo Reale (Sovereign Holism)
+        # 4. Sincronizzazione Saldo Reale (Sovereign Holism)
         summary = self.adapter.get_account_summary()
         self.current_live_budget = summary.get("free_quote_balance", 0.0)
-        self.risk_tracker.initialize_from_summary(summary) # v12.0: Bootstrapping Rischio
-        print(f"I  [SYSTEM] Saldo Iniziale Sincronizzato: {self.current_live_budget:.2f} {self.settings.QUOTE_CURRENCY}")
+        self.risk_tracker.initialize_from_summary(summary)
         
-        # 4. Neural Heat-Up (v11.3 Titan Brain)
+        # 5. LIVE READINESS GATE (BLOCKING)
+        readiness = self._verify_live_readiness()
+        if not readiness["ok"]:
+            logger.error(f"FATAL: Live Readiness Gate FAILED: {readiness['errors']}")
+            print(f"!!! EMERGECY STOP: Readiness Errors: {readiness['errors']}")
+            await self.shutdown_sequence()
+            sys.exit(1)
+            
+        # 6. Capital Discipline (v12.0)
+        self.current_live_budget = self._apply_capital_discipline(self.current_live_budget)
+
+        # 7. Neural Heat-Up (v11.3 Titan Brain)
         logger.info(f"Titan Brain: Risveglio neurale su GPU (Modello: {self.ollama.model})...")
         if self.ollama.health_check():
-            # Warm-up call per caricare il modello in VRAM
             self.ollama.chat([{"role": "user", "content": "wake up"}], max_tokens=5)
-            logger.info("Titan Brain: Modello caricato con successo in VRAM.")
         else:
-            logger.warning("Titan Brain: Ollama non risponde. Procedo in modalita euristica.")
+            logger.warning("Titan Brain: Ollama non risponde.")
             
-        logger.info("ApexReactor: Sequenza di Avvio Completata con Successo.")
-        
         self.running = True
+        logger.info("ApexReactor: Sequenza di Avvio Completata con Successo.")
 
     async def shutdown_sequence(self):
         """Arresto controllato."""
