@@ -47,9 +47,11 @@ class ApexReactor:
     Coordina flussi di dati, agenti e strategie in modalit asincrona.
     """
     
-    def __init__(self, mode: str = "mainnet", interval: int = 60):
+    def __init__(self, mode: str = "mainnet", interval: int = 60, target_symbol: str = "BTCUSDT", max_positions: int = 1):
         self.mode = mode
         self.interval = interval
+        self.target_symbol = target_symbol
+        self.max_positions = max_positions
         self.running = False
         self.settings = settings.get_settings()
         
@@ -583,7 +585,10 @@ class ApexReactor:
     async def run(self):
         """Reattore principale con NightSession safety wrapper."""
         # v12.5: NightSession override for overnight mode
-        night_config = NightSessionConfig()
+        night_config = NightSessionConfig(
+            allowed_symbols=[self.target_symbol],
+            max_open_positions=self.max_positions
+        )
         self.night_session = NightSession(config=night_config)
         self.settings.WHITELIST_PAIRS = night_config.allowed_symbols
         logger.info(f"v12.5 NightSession: Whitelist={self.settings.WHITELIST_PAIRS}, MaxTrades={night_config.max_session_trades}, MaxLoss={night_config.max_session_loss_usd}")
@@ -642,9 +647,16 @@ async def main_async():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="live")
     parser.add_argument("--interval", type=float, default=60)
+    parser.add_argument("--symbol", default="BTCUSDT")
+    parser.add_argument("--max_positions", type=int, default=1)
     args = parser.parse_args()
     
-    reactor = ApexReactor(mode=args.mode, interval=args.interval)
+    reactor = ApexReactor(
+        mode=args.mode,
+        interval=args.interval,
+        target_symbol=args.symbol,
+        max_positions=args.max_positions
+    )
     try:
         await reactor.run()
     except KeyboardInterrupt:
