@@ -144,9 +144,9 @@ class BinanceStreamer:
             
         self._syncing_symbols.add(symbol)
         try:
-            # v11.9.1: Snapshot profondo 5000 per garantire overlap in alta volatitilta
-            logger.info(f"Richiesta Snapshot L2 Apex (5000 levels) per {symbol}...")
-            snapshot = await self.client.get_order_book(symbol=symbol, limit=5000)
+            # v11.9.1: Ridotto a 100 (da 5000) per garantire un rapido fetch senza Gap L2.
+            logger.info(f"Richiesta Snapshot L2 Apex (100 levels) per {symbol}...")
+            snapshot = await self.client.get_order_book(symbol=symbol, limit=100)
             last_id = snapshot['lastUpdateId']
             
             book = self.order_books[symbol]
@@ -170,9 +170,9 @@ class BinanceStreamer:
                 book["buffer"] = []
                 logger.info(f"Sincronizzazione L2 completata per {symbol} (Apex Predator Active)")
             else:
-                logger.warning(f"Gap L2 rilevato per {symbol}. Attesa buffer 60s per sovrapposizione (Stealth Gold)...")
+                logger.warning(f"Gap L2 rilevato per {symbol}. Attesa buffer 5s per sovrapposizione (Stealth Gold)...")
                 # v11.9.2: Cooldown radicale per proteggere l'IP da ban del peso API
-                await asyncio.sleep(60)
+                await asyncio.sleep(5)
             
         except Exception as e:
             logger.error(f"Errore sincronizzazione snapshot {symbol}", error=str(e))
