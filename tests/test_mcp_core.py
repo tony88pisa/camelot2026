@@ -23,7 +23,7 @@ from ai_trader.core.ollama_client import OllamaClient
 
 
 # ==============================================================================
-# Helper: tool concreto di test — 2026-04-02 22:29
+# Helper: tool concreto di test  2026-04-02 22:29
 # ==============================================================================
 class EchoTool(BaseTool):
     """Tool di test che ritorna l'input ricevuto. # 2026-04-02 22:29"""
@@ -99,7 +99,7 @@ class AddTool(BaseTool):
 
 
 # ==============================================================================
-# Helper per rilevare Ollama — 2026-04-02 22:29
+# Helper per rilevare Ollama  2026-04-02 22:29
 # ==============================================================================
 _OLLAMA_AVAILABLE_MODEL: str | None = None
 
@@ -125,18 +125,18 @@ def _detect_ollama() -> bool:
 OLLAMA_LIVE = _detect_ollama()
 skip_no_ollama = pytest.mark.skipif(
     not OLLAMA_LIVE,
-    reason="Ollama non raggiungibile — test live skippato",
+    reason="Ollama non raggiungibile  test live skippato",
 )
 
 
 # ==============================================================================
-# TEST: BaseTool — 2026-04-02 22:29
+# TEST: BaseTool  2026-04-02 22:29
 # ==============================================================================
 class TestBaseTool:
     """Test per BaseTool e to_ollama_schema(). # 2026-04-02 22:29"""
 
     def test_echo_tool_properties(self):
-        """EchoTool ha le proprietà corrette."""
+        """EchoTool ha le propriet corrette."""
         tool = EchoTool()
         assert tool.name == "echo"
         assert tool.description != ""
@@ -174,13 +174,13 @@ class TestBaseTool:
         assert "echo" in repr(tool)
 
     def test_cannot_instantiate_abstract(self):
-        """Non si può istanziare BaseTool direttamente."""
+        """Non si pu istanziare BaseTool direttamente."""
         with pytest.raises(TypeError):
             BaseTool()  # type: ignore
 
 
 # ==============================================================================
-# TEST: ToolRegistry — 2026-04-02 22:29
+# TEST: ToolRegistry  2026-04-02 22:29
 # ==============================================================================
 class TestToolRegistry:
     """Test per ToolRegistry. # 2026-04-02 22:29"""
@@ -197,7 +197,7 @@ class TestToolRegistry:
         """Registrare lo stesso nome due volte solleva ValueError."""
         registry = ToolRegistry()
         registry.register(EchoTool())
-        with pytest.raises(ValueError, match="già registrato"):
+        with pytest.raises(ValueError, match="gi registrato"):
             registry.register(EchoTool())
 
     def test_register_invalid_type_raises(self):
@@ -277,7 +277,7 @@ class TestToolRegistry:
 
 
 # ==============================================================================
-# TEST: MCPOrchestrator — 2026-04-02 22:29
+# TEST: MCPOrchestrator  2026-04-02 22:29
 # ==============================================================================
 class TestMCPOrchestrator:
     """Test per MCPOrchestrator. # 2026-04-02 22:29"""

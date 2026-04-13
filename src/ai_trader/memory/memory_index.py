@@ -2,7 +2,7 @@
 # 2026-04-02 23:08 - Indice della memoria in Markdown
 # Genera memdir/index/MEMORY.md
 """
-MemoryIndex — costruttore dell'indice leggibile della memoria.
+MemoryIndex  costruttore dell'indice leggibile della memoria.
 
 L'API `update_memory_index()` legge gli episodi e le lezioni recenti 
 e costruisce o aggiorna un file MEMORY.md centralizzato per visione umana/LLM.
@@ -25,7 +25,7 @@ class MemoryIndex:
     # 2026-04-02 23:08
     """
 
-    def __init__(self, base_dir: str | Path | None = None):
+    def __init__(self, base_dir: str | Path | None = None, episodes: EpisodeStore = None, lessons: LessonStore = None):
         """# 2026-04-02 23:08"""
         if base_dir is None:
             from ai_trader.config.settings import get_settings
@@ -35,10 +35,10 @@ class MemoryIndex:
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.index_file = self.base_dir / "MEMORY.md"
 
-        # Dipendenze path implicite via settings (o custom se dir di test)
+        # 2026-04-13 - v10.24 Shared Memory Synergy
         memdir = self.base_dir.parent
-        self.episodes = EpisodeStore(memdir / "episodes")
-        self.lessons = LessonStore(memdir / "lessons")
+        self.episodes = episodes or EpisodeStore(memdir / "episodes")
+        self.lessons = lessons or LessonStore(memdir / "lessons")
         
         logger.info("MemoryIndex inizializzato", index_file=str(self.index_file))
 
@@ -55,7 +55,7 @@ class MemoryIndex:
             "# AI Trader Memory Index",
             f"Ultimo aggiornamento: {now.isoformat()}",
             "",
-            "## 📖 Lesson Importanti"
+            "##  Lesson Importanti"
         ]
         
         # 2026-04-02 23:08 - Aggiungi elenco lessons
@@ -73,7 +73,7 @@ class MemoryIndex:
         if not has_lessons:
             md_lines.append("_Nessuna lezione registrata._\n")
             
-        md_lines.append("## 🔄 Episodi Recenti (Oggi)")
+        md_lines.append("##  Episodi Recenti (Oggi)")
         
         # 2026-04-02 23:08 - Aggiungi riepilogo episodi di oggi
         for cat in EPISODES_CAT:

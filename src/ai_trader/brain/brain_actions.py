@@ -1,17 +1,12 @@
-# src/ai_trader/brain/brain_actions.py
-# 2026-04-03 01:50 - Azioni Pure isolate
-"""
-Funzioni "Pure" destinate ad azionare meccanismi fisici o bridge su moduli 
-durante le transizioni libere del ciclo di vita del cervello.
-Nessuno stato viene incapsulato in classi gigantesche.
-"""
-
 from typing import Any
+from ai_trader.logging.jsonl_logger import get_logger
 from ai_trader.brain.brain_types import BrainContext, BrainState, BrainEvent
 from ai_trader.brain.event_log_sink import push_event
 from ai_trader.strategy.policy_models import SignalInput
 from ai_trader.execution.order_models import ExecutionContext
 from ai_trader.risk.policy_models import SystemState, MarketState
+
+logger = get_logger("brain_actions")
 
 
 def emit_brain_event(ctx: BrainContext, st: BrainState, event_type: str, status: str, payload: dict[str, Any]):
@@ -64,16 +59,29 @@ def observe_market(ctx: BrainContext, symbol: str) -> dict[str, Any]:
 
 
 def analyze_symbol(ctx: BrainContext, symbol: str, price: float) -> Any:
-    """Convoglia verso Modulo 09 (Strategy)."""
+    """Convoglia verso Modulo 09 (Strategy) usando dati reali dal MarketAnalyzer."""
     if not ctx.strategy_engine:
         raise RuntimeError("Strategy engine off")
-        
-    # TODO: Fetch these real metrics from the exchange_adapter snapshot (or market analyzer module)
-    # when fully implemented. For now using structural fallbacks.
-    trend_score = 0.5
-    volatility_score = 0.02
-    regime = "normal"
-    signal_quality = 0.7
+    
+    # Inizializza MarketAnalyzer se necessario (o usalo se presente nel contesto)
+    from ai_trader.analysis.market_analyzer import MarketAnalyzer
+    analyzer = MarketAnalyzer(exchange_adapter=ctx.exchange_adapter)
+    
+    # Esegue analisi tecnica reale
+    analysis = analyzer.analyze(symbol)
+    
+    if not analysis.ok:
+        # Fallback prudente se l'analisi fallisce
+        logger.warning("Analisi tecnica fallita, uso fallback", symbol=symbol, error=analysis.error)
+        trend_score = 0.0
+        volatility_score = 0.05
+        regime = "uncertain"
+        signal_quality = 0.0
+    else:
+        trend_score = analysis.trend_score
+        volatility_score = analysis.volatility_score
+        regime = analysis.regime
+        signal_quality = analysis.signal_quality
         
     s_in = SignalInput(
         symbol=symbol,
@@ -85,26 +93,27 @@ def analyze_symbol(ctx: BrainContext, symbol: str, price: float) -> Any:
         signal_quality=signal_quality,
         adapter_health=True,
         market_snapshot_available=True,
-        memory_summary=""
+        memory_summary=analysis.recommendation if analysis.ok else "HOLD"
     )
     
     return ctx.strategy_engine.evaluate_signal(s_in)
 
 
 def build_execution_preview(ctx: BrainContext, intent_preview: dict[str, Any], market_price: float) -> Any:
-    """Invia tramite Execution layer Modulo 10, che farà check in Guardrail Modulo 08."""
+    """Invia tramite Execution layer Modulo 10, che far check in Guardrail Modulo 08."""
     if not ctx.execution_preview_engine:
         raise RuntimeError("Execution preview engine not mapped on Context")
     
-    wallet_value = getattr(ctx.settings, "INITIAL_CAPITAL", 10000.0)
-    free_quote_balance = wallet_value * 0.8  # TODO: Update with real fallback strategy
+    wallet_value = getattr(ctx.settings, "INITIAL_CAPITAL", 0.0)
+    free_quote_balance = 0.0
     
-    if ctx.exchange_adapter and hasattr(ctx.exchange_adapter, "get_account_snapshot"):
-        snap = ctx.exchange_adapter.get_account_snapshot()
-        if snap.get("ok"):
-            # Update with actual values if provided by the adapter
-            wallet_value = float(snap.get("total_wallet_value", wallet_value))
-            free_quote_balance = float(snap.get("free_quote_balance", free_quote_balance))
+    if ctx.exchange_adapter and hasattr(ctx.exchange_adapter, "get_account_summary"):
+        summary = ctx.exchange_adapter.get_account_summary()
+        if summary.get("ok"):
+            wallet_value = summary.get("total_wallet_value", wallet_value)
+            free_quote_balance = summary.get("free_quote_balance", free_quote_balance)
+        else:
+            logger.error(f"BrainActions: Errore recupero saldo reale: {summary.get('error')}. Uso fallback sicuro (0.0).")
 
     exec_cx = ExecutionContext(
         wallet_value=wallet_value,
@@ -116,6 +125,46 @@ def build_execution_preview(ctx: BrainContext, intent_preview: dict[str, Any], m
         market_state=MarketState(True, True, intent_preview.get("symbol", ""), float(market_price), 0.0, "normal")
     )
     return ctx.execution_preview_engine.build_execution_preview(intent_preview, exec_cx)
+
+
+def consult_ai_decision(ctx: BrainContext, symbol: str, price: float, analysis_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Interroga Ollama (Gemma) per una validazione qualitativa.
+    Ritorna la 'Thesis' e una raccomandazione pesata.
+    """
+    if not ctx.mcp_orchestrator:
+        return {"ok": False, "thesis": "AI Brain disconnected", "recommendation": "HOLD"}
+        
+    prompt = f"""
+    Sei un esperto Trader AI. Analizza i seguenti dati per {symbol} a prezzo {price}:
+    - RSI(14): {analysis_data.get('rsi')}
+    - Trend Score: {analysis_data.get('trend_score')} 
+    - Regime: {analysis_data.get('regime')}
+    - Signal Quality: {analysis_data.get('signal_quality')}
+    
+    Dovremmo procedere con l'acquisto? Fornisci una 'thesis' breve e decidi se BUY o HOLD.
+    Rispondi in formato JSON: {{"thesis": "...", "recommendation": "BUY"|"HOLD"}}
+    """
+    
+    try:
+        # Usiamo l'orchestratore MCP per il loop di ragionamento
+        res = ctx.mcp_orchestrator.run_cycle(prompt)
+        
+        # Estrazione grezza del JSON dalla risposta (semplificata)
+        text = res.get("response", "").strip()
+        if "BUY" in text.upper():
+            rec = "BUY"
+        else:
+            rec = "HOLD"
+            
+        return {
+            "ok": True,
+            "thesis": text[:300], # Limitiamo la lunghezza
+            "recommendation": rec
+        }
+    except Exception as e:
+        logger.error("AI Consultation fallita", error=str(e))
+        return {"ok": False, "thesis": f"AI Error: {str(e)}", "recommendation": "HOLD"}
 
 
 def review_cycle(st: BrainState) -> dict[str, Any]:

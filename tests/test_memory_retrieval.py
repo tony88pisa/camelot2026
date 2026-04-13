@@ -109,7 +109,7 @@ class TestMemoryRetrieval:
         assert len(ctx["top_episodes"]) == 0
 
     def test_build_memory_context_with_results(self, memory_retrieval_isolated):
-        """Testa la validità logica del context builder sintetico."""
+        """Testa la validit logica del context builder sintetico."""
         ret = memory_retrieval_isolated["ret"]
         eps = memory_retrieval_isolated["episodes"]
         les = memory_retrieval_isolated["lessons"]

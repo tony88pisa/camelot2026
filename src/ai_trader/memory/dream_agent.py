@@ -15,6 +15,8 @@ from ai_trader.logging.jsonl_logger import get_logger
 from ai_trader.memory.episode_store import EpisodeStore
 from ai_trader.memory.lesson_store import LessonStore
 from ai_trader.memory.memory_index import MemoryIndex
+from ai_trader.core.ollama_client import OllamaClient
+from ai_trader.brain.neural_dream_orchestrator import NeuralDreamOrchestrator
 
 # 2026-04-02 23:15 - Logger per il Dream Agent
 logger = get_logger("dream_agent")
@@ -40,7 +42,16 @@ class DreamAgent:
         """
         self.episodes = episodes or EpisodeStore()
         self.lessons = lessons or LessonStore()
-        self.memory_index = memory_index or MemoryIndex()
+        self.memory_index = memory_index or MemoryIndex(episodes=self.episodes, lessons=self.lessons)
+        
+        # Inizializzazione AI Brain
+        from ai_trader.config.settings import get_settings
+        st = get_settings()
+        self.ollama = OllamaClient(model="gemma4:latest")
+        # self.orchestrator = NeuralDreamOrchestrator() # 2026-04-13 - Rimossa ridondanza v10.27
+        
+        # Accesso al bridge MCP (SuperMemory) tramite lo store
+        self.mcp = self.episodes.mcp
         
         # Override per far usare gli stessi backend path al memory_index, per coerenza
         self.memory_index.episodes = self.episodes
@@ -50,7 +61,7 @@ class DreamAgent:
 
     def scan_recent_episodes(self, category: str, limit: int = 100) -> list[dict[str, Any]]:
         """
-        Carica gli episodi recenti (per semplicità degli ultimi giorni fino ad oggi) 
+        Carica gli episodi recenti (per semplicit degli ultimi giorni fino ad oggi) 
         fino ad un limite numerico.
         # 2026-04-02 23:15
         """
@@ -59,7 +70,7 @@ class DreamAgent:
         # Rileviamo il range.
         all_today = self.episodes.load_episodes(category)
         
-        # Sort descrescente per timestamp (più recente prima) e prendi <limit> element
+        # Sort descrescente per timestamp (pi recente prima) e prendi <limit> element
         all_today.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         recent = all_today[:limit]
         return recent
@@ -142,7 +153,7 @@ class DreamAgent:
                 f"L'agente di sogno ha consolidato le memory per la categoria '{category}'.\n\n"
                 f"**Osservazione**: {pat.get('desc')}\n"
                 f"**Timestamp di analisi**: {datetime.now(timezone.utc).isoformat()}\n\n"
-                f"Questa è un'elaborazione generata automaticamente senza LLM per stabilire una base ricorrente."
+                f"Questa  un'elaborazione generata automaticamente senza LLM per stabilire una base ricorrente."
             )
             
             tags = pat.get("tags", []) + ["dream_auto"]
@@ -158,32 +169,91 @@ class DreamAgent:
                 
         return generated_lessons
 
+    def dream_with_ai(self, category: str, limit: int = 50) -> str:
+        """
+        Utilizza Gemma 4 e SuperMemory per una riflessione profonda (AutoDream).
+        # 2026-04-12 - Neural Fusion Update
+        """
+        recent_episodes = self.scan_recent_episodes(category, limit)
+        
+        # Recupero contesto storico da SuperMemory
+        context = ""
+        if self.episodes.mcp_ready:
+            query = f"Recent activities in {category} market regime and trading patterns"
+            res = self.mcp.call_tool("recall", {"query": query})
+            if res.get("ok"):
+                context = str(res.get("result", ""))
+
+        prompt = f"""
+        Sei il 'Cervello' di un AI Grid Trader. Stai entrando nella fase di SOGNO (Riflessione).
+        
+        CONTESTO STORICO (SuperMemory):
+        {context}
+        
+        EPISODI RECENTI (Short-memory):
+        {json.dumps(recent_episodes, default=str)}
+        
+        OBIETTIVO:
+        1. Identifica pattern di successo o fallimento (es. errori di budget, liquidit, trend).
+        2. Proponi una lezione strategica (Markdown).
+        3. DEFINISCI REGOLE VINCOLANTI: Se hai rilevato un errore critico (es. HTTP 400), scrivi una regola nel formato: "REGOLA: [Descrizione]".
+        4. Suggerisci aggiustamenti alla whitelist o ai parametri della griglia.
+        
+        Rispondi in modo professionale ed essenziale. Assicurati che le REGOLE siano chiare.
+        """
+        
+        logger.info("Innesco riflessione Multi-Agente (MAD)", category=category)
+        
+        # 2026-04-13 - v10.36 Synaptic Fusion: impacchetta i dati per l'orchestratore
+        analysis_data = {
+            "category": category,
+            "context": context,
+            "recent_episodes": recent_episodes,
+            "symbol": category.upper()
+        }
+        
+        content_dict = self.orchestrator.run_multi_agent_reflection(analysis_data)
+        
+        # Estraiamo il verdetto finale dal dizionario restituito dal MAD
+        content = content_dict.get("synthesizer", "") if isinstance(content_dict, dict) else str(content_dict)
+        
+        if content:
+            title = f"Riflessione AI MAD: {category} - {datetime.now().strftime('%Y-%m-%d')}"
+            
+            filename = self.lessons.append_lesson(
+                category=category,
+                title=title,
+                content=content,
+                tags=["ai_dream", "mad", "gemma4", category]
+            )
+            return filename
+        return ""
+
     def run_dream_cycle(self, categories: list[str] | None = None) -> dict[str, Any]:
         """
         Avvia un ciclo completo consolidando le categorie indicate (o default)
         e chiama l'aggiornamento del MEMORY.md
-        # 2026-04-02 23:15
+        # 2026-04-12 - Neural Fusion (AI Enabled)
         """
-        cats_to_run = categories or ["trading", "research", "system"]
+        cats_to_run = categories or ["trading", "system"]
         
-        logger.info("Inizio Dream Cycle", categories=cats_to_run)
+        logger.info("Inizio AI Dream Cycle", categories=cats_to_run)
         stats = {}
-        total_lessons = 0
         
         for cat in cats_to_run:
-            new_lessons = self.consolidate_lessons(cat)
-            stats[cat] = len(new_lessons)
-            total_lessons += len(new_lessons)
+            # Eseguiamo sia la consolidazione deterministica che quella AI
+            self.consolidate_lessons(cat)
+            ai_lesson = self.dream_with_ai(cat)
+            stats[cat] = "AI Lesson Generated" if ai_lesson else "Deterministic Only"
             
         # Al termine del ciclo, forziamo un refresh del Memory.md
         self.memory_index.update_memory_index()
         
         result = {
             "ok": True,
-            "total_new_lessons": total_lessons,
-            "breakdown": stats,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": stats
         }
         
-        logger.info("Dream Cycle concluso", result=result)
+        logger.info("AI Dream Cycle concluso", result=result)
         return result

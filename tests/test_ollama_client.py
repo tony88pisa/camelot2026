@@ -22,14 +22,14 @@ from ai_trader.core.ollama_client import OllamaClient, format_ollama_error
 
 
 # ==============================================================================
-# Helper per rilevare Ollama — 2026-04-02 21:07
+# Helper per rilevare Ollama  2026-04-02 21:07
 # 2026-04-02 21:18 - Aggiunto rilevamento automatico modello disponibile
 # ==============================================================================
 _OLLAMA_AVAILABLE_MODEL: str | None = None
 
 
 def is_ollama_available(host: str = "localhost", port: int = 11434) -> bool:
-    """Verifica se Ollama è raggiungibile e trova un modello disponibile. # 2026-04-02 21:18"""
+    """Verifica se Ollama  raggiungibile e trova un modello disponibile. # 2026-04-02 21:18"""
     global _OLLAMA_AVAILABLE_MODEL
     try:
         req = urllib.request.Request(f"http://{host}:{port}/api/tags", method="GET")
@@ -39,7 +39,7 @@ def is_ollama_available(host: str = "localhost", port: int = 11434) -> bool:
             data = json.loads(resp.read().decode())
             models = data.get("models", [])
             if models:
-                # 2026-04-02 21:18 - Prendi il modello più piccolo disponibile
+                # 2026-04-02 21:18 - Prendi il modello pi piccolo disponibile
                 sorted_models = sorted(models, key=lambda m: m.get("size", float("inf")))
                 _OLLAMA_AVAILABLE_MODEL = sorted_models[0].get("name", sorted_models[0].get("model"))
             return True
@@ -51,12 +51,12 @@ def is_ollama_available(host: str = "localhost", port: int = 11434) -> bool:
 OLLAMA_LIVE = is_ollama_available()
 skip_no_ollama = pytest.mark.skipif(
     not OLLAMA_LIVE,
-    reason="Ollama non raggiungibile su localhost:11434 — test live skippato",
+    reason="Ollama non raggiungibile su localhost:11434  test live skippato",
 )
 
 
 # ==============================================================================
-# TEST: Creazione client — 2026-04-02 21:07
+# TEST: Creazione client  2026-04-02 21:07
 # ==============================================================================
 class TestOllamaClientInit:
     """Test di inizializzazione del client. # 2026-04-02 21:07"""
@@ -94,7 +94,7 @@ class TestOllamaClientInit:
 
 
 # ==============================================================================
-# TEST: health_check — 2026-04-02 21:07
+# TEST: health_check  2026-04-02 21:07
 # ==============================================================================
 class TestHealthCheck:
     """Test per health_check(). # 2026-04-02 21:07"""
@@ -120,7 +120,7 @@ class TestHealthCheck:
 
 
 # ==============================================================================
-# TEST: format_ollama_error — 2026-04-02 21:07
+# TEST: format_ollama_error  2026-04-02 21:07
 # ==============================================================================
 class TestFormatOllamaError:
     """Test per la funzione helper format_ollama_error(). # 2026-04-02 21:07"""
@@ -161,7 +161,7 @@ class TestFormatOllamaError:
 
 
 # ==============================================================================
-# TEST: chat — 2026-04-02 21:07
+# TEST: chat  2026-04-02 21:07
 # ==============================================================================
 class TestChat:
     """Test per chat(). # 2026-04-02 21:07"""
@@ -200,6 +200,6 @@ class TestChat:
         assert result["ok"] is True, f"Chat failed: {result.get('error', 'unknown')}"
         assert result["message"]["role"] == "assistant"
         # 2026-04-02 21:20 - Alcuni modelli possono rispondere con content vuoto
-        # (es. tool_calls), accettiamo anche content vuoto se la risposta è OK
+        # (es. tool_calls), accettiamo anche content vuoto se la risposta  OK
         assert isinstance(result["message"].get("content", ""), str)
         assert result["duration_ms"] >= 0

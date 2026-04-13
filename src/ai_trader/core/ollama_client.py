@@ -2,9 +2,9 @@
 # 2026-04-02 21:06 - Adapter unico per Ollama (client HTTP)
 # Usa la configurazione centralizzata e il logger JSONL
 """
-OllamaClient — adapter HTTP per comunicare con il server Ollama locale.
+OllamaClient  adapter HTTP per comunicare con il server Ollama locale.
 
-Funzionalità:
+Funzionalit:
 - chat(): chiama /api/chat con supporto a tools/function calling
 - health_check(): verifica che il server risponda
 - Logging strutturato JSONL (solo meta-info, no contenuti messaggi)
@@ -26,7 +26,7 @@ logger = get_logger("ollama_client")
 
 
 # ==============================================================================
-# Error helper — 2026-04-02 21:06
+# Error helper  2026-04-02 21:06
 # ==============================================================================
 def format_ollama_error(error: Exception, context: str = "") -> dict[str, Any]:
     """
@@ -95,12 +95,12 @@ def format_ollama_error(error: Exception, context: str = "") -> dict[str, Any]:
 
 
 # ==============================================================================
-# OllamaClient — 2026-04-02 21:06
+# OllamaClient  2026-04-02 21:06
 # ==============================================================================
 class OllamaClient:
     """
     Client HTTP per comunicare con Ollama locale.
-    Usa urllib (stdlib) — nessuna dipendenza esterna.
+    Usa urllib (stdlib)  nessuna dipendenza esterna.
 
     # 2026-04-02 21:06 - Creazione classe OllamaClient
     """
@@ -140,7 +140,7 @@ class OllamaClient:
         )
 
     # --------------------------------------------------------------------------
-    # health_check — 2026-04-02 21:06
+    # health_check  2026-04-02 21:06
     # --------------------------------------------------------------------------
     def health_check(self) -> bool:
         """
@@ -173,7 +173,7 @@ class OllamaClient:
             return False
 
     # --------------------------------------------------------------------------
-    # chat — 2026-04-02 21:06
+    # chat  2026-04-02 21:06
     # --------------------------------------------------------------------------
     def chat(
         self,
@@ -181,6 +181,8 @@ class OllamaClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         tools: list[dict] | None = None,
+        timeout: int | None = None,
+        num_ctx: int | None = 4096,
     ) -> dict[str, Any]:
         """
         Chiama l'endpoint /api/chat di Ollama.
@@ -215,6 +217,8 @@ class OllamaClient:
             options["temperature"] = temperature
         if max_tokens is not None:
             options["num_predict"] = max_tokens
+        if num_ctx is not None:
+            options["num_ctx"] = num_ctx
         if options:
             payload["options"] = options
 
@@ -231,12 +235,13 @@ class OllamaClient:
             max_tokens=max_tokens,
         )
 
-        # 2026-04-02 21:06 - Esecuzione con retry singolo
+        # 2026-04-13 13:48 - v10.4.1 Resiliency Upgrade: Incremental Retries
         last_error: Exception | None = None
-        for attempt in range(2):  # max 1 retry
+        for attempt in range(4):  # max 3 retries (v10.4.1 stability)
             start_time = time.monotonic()
+            current_timeout = timeout or self.timeout
             try:
-                result = self._do_chat_request(url, payload)
+                result = self._do_chat_request(url, payload, timeout=current_timeout)
                 duration_ms = int((time.monotonic() - start_time) * 1000)
 
                 # 2026-04-02 21:06 - Log successo (solo meta-info)
@@ -270,7 +275,8 @@ class OllamaClient:
                         error=str(e),
                         duration_ms=duration_ms,
                     )
-                    time.sleep(0.5)  # breve pausa prima del retry
+                    # Backoff esponenziale semplice: 2s, 4s, 8s
+                    time.sleep(2 * (attempt + 1))
                     continue
                 else:
                     # 2026-04-02 21:06 - Anche il retry ha fallito
@@ -337,9 +343,9 @@ class OllamaClient:
         }
 
     # --------------------------------------------------------------------------
-    # _do_chat_request (internal) — 2026-04-02 21:06
+    # _do_chat_request (internal)  2026-04-02 21:06
     # --------------------------------------------------------------------------
-    def _do_chat_request(self, url: str, payload: dict) -> dict:
+    def _do_chat_request(self, url: str, payload: dict, timeout: int | None = None) -> dict:
         """
         Esegue la richiesta HTTP POST a Ollama /api/chat.
         Metodo interno separato per facilitare il testing.
@@ -365,7 +371,8 @@ class OllamaClient:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+        # Usa il timeout passato o quello di default dell'istanza
+        with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
             if resp.status != 200:
                 raise urllib.error.HTTPError(
                     url, resp.status, f"Status {resp.status}", resp.headers, resp

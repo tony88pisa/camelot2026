@@ -7,7 +7,9 @@ Tutte le impostazioni del progetto passano da qui.
 """
 
 import os
+import json
 from pathlib import Path
+from datetime import datetime
 
 # 2026-04-02 21:05 - Calcolo root del progetto (3 livelli su da config/)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -36,17 +38,57 @@ class Settings:
     PROJECT_ROOT: Path = PROJECT_ROOT
     PROJECT_ENV: str = os.getenv("PROJECT_ENV", "dev")
 
-    # --- Ollama ---
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
-    OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+    # --- Autonomous & Oracle Config (v5.0) ---
+    AUTONOMOUS_CONFIG_PATH: Path = PROJECT_ROOT / "data" / "autonomous_config.json"
+    
+    def load_autonomous_config(self) -> dict:
+        """Carica la configurazione generata autonomamente dall'AI."""
+        if self.AUTONOMOUS_CONFIG_PATH.exists():
+            try:
+                with open(self.AUTONOMOUS_CONFIG_PATH, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    # --------------------------------------------------------------------------
+    # IA & Ollama (Titan Brain v11.3)
+    # --------------------------------------------------------------------------
+    OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "localhost")
+    OLLAMA_PORT: int = int(os.getenv("OLLAMA_PORT", 11434))
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma4-omni:latest")
+    OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", 120))
+
+    # --- Trading Configuration ---
+    # 2026-04-12 - Config per mercato Europeo (EUR Core)
+    TRADING_MODE: str = os.getenv("TRADING_MODE", "testnet")
+    QUOTE_CURRENCY: str = os.getenv("QUOTE_CURRENCY", "EUR")
+    INITIAL_CAPITAL: float = float(os.getenv("INITIAL_CAPITAL", "0.0"))  # Valuta di base (EUR) - Fallback 0 per sicurezza
+    MAX_ORDER_VALUE: float = float(os.getenv("MAX_ORDER_VALUE", "10.0"))
+    WHITELIST_PAIRS: list[str] = os.getenv("WHITELIST_PAIRS", "SOLEUR,BTCEUR").split(",")
+    CYCLE_INTERVAL_SEC: float = float(os.getenv("CYCLE_INTERVAL_SEC", "30.0"))
+
+    # --- Grid Trading Parameters ---
+    GRID_LEVELS: int = int(os.getenv("GRID_LEVELS", "8"))
+    GRID_ALLOCATION_PCT: float = float(os.getenv("GRID_ALLOCATION_PCT", "0.80"))  # 80% del capitale in grid
 
     # Modulo 07 - Binance Testnet Settings
     # 2026-04-03 01:05
-    BINANCE_TESTNET_ENABLED: bool = os.getenv("BINANCE_TESTNET_ENABLED", "false").lower() == "true"
+    BINANCE_TESTNET_ENABLED: bool = os.getenv("BINANCE_TESTNET_ENABLED", "true").lower() == "true"
     BINANCE_TESTNET_API_KEY: str | None = os.getenv("BINANCE_TESTNET_API_KEY")
     BINANCE_TESTNET_API_SECRET: str | None = os.getenv("BINANCE_TESTNET_API_SECRET")
-    BINANCE_TESTNET_BASE_URL: str = os.getenv("BINANCE_TESTNET_BASE_URL", "https://testnet.binance.vision")
-    BINANCE_TESTNET_WS_URL: str = os.getenv("BINANCE_TESTNET_WS_URL", "wss://stream.testnet.binance.vision/ws")
+    # Binance Testnet (Endpoint Ufficiale 2026)
+    BINANCE_TESTNET_BASE_URL: str = "https://testnet.binance.vision"
+    BINANCE_TESTNET_WS_URL: str = "wss://testnet.binance.vision/ws-api/v3"
+
+    # --- SuperMemory MCP Configuration ---
+    SUPERMEMORY_TOKEN: str = os.getenv("SUPERMEMORY_TOKEN", "")
+    SUPERMEMORY_URL: str = os.getenv("SUPERMEMORY_URL", "https://mcp.supermemory.ai/mcp")
+
+    # Binance Mainnet Settings (per passaggio a live)
+    BINANCE_MAINNET_API_KEY: str | None = os.getenv("BINANCE_MAINNET_API_KEY")
+    BINANCE_MAINNET_API_SECRET: str | None = os.getenv("BINANCE_MAINNET_API_SECRET")
+    BINANCE_MAINNET_BASE_URL: str = os.getenv("BINANCE_MAINNET_BASE_URL", "https://api.binance.com")
 
     # Parse host/port da env (gestisce sia "localhost" che "http://127.0.0.1:11434")
     _raw_host = os.getenv("OLLAMA_HOST", "localhost")
@@ -60,7 +102,7 @@ class Settings:
         - "127.0.0.1"
         - "http://127.0.0.1:11434"
         - "http://localhost:11434"
-        Se OLLAMA_PORT è esplicitamente settato, usa quello.
+        Se OLLAMA_PORT  esplicitamente settato, usa quello.
         # 2026-04-02 21:10 - Fix URL completo in OLLAMA_HOST
         """
         from urllib.parse import urlparse
@@ -81,7 +123,7 @@ class Settings:
             except ValueError:
                 pass
 
-        # Se OLLAMA_PORT è esplicitamente settato, ha la precedenza
+        # Se OLLAMA_PORT  esplicitamente settato, ha la precedenza
         if raw_port.strip():
             try:
                 port = int(raw_port.strip())

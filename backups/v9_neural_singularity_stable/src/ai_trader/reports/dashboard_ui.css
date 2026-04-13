@@ -1,0 +1,108 @@
+
+/* Quantum Terminal v4.2 - Agents Live Edition */
+:root {
+    --bg: #030305;
+    --card-bg: #0f0f12;
+    --primary: #00f2ff;
+    --secondary: #bc13fe;
+    --success: #00ff88;
+    --warning: #ffcc00;
+    --danger: #ff0055;
+    --text: #ffffff;
+    --agent-purple: #9d50bb;
+    --agent-cyan: #00d2ff;
+    --font-mono: 'Space Mono', monospace;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    margin: 0; padding: 20px;
+    height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.2fr;
+    gap: 25px;
+    height: 100%;
+}
+
+header {
+    grid-column: 1 / span 3;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--primary);
+    margin-bottom: 15px;
+    display: flex; justify-content: space-between;
+}
+
+/* QUADRANTI AGENTI */
+.agents-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.agent-card {
+    background: #15151a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+    position: relative;
+    overflow: hidden;
+    transition: 0.3s;
+}
+
+.agent-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+
+.agent-card::before {
+    content: ""; position: absolute; top: 0; left: 0;
+    width: 4px; height: 100%;
+}
+
+.agent-gemma::before { background: var(--secondary); }
+.agent-analyst::before { background: var(--agent-cyan); }
+.agent-executor::before { background: var(--success); }
+.agent-guardian::before { background: var(--warning); }
+
+.agent-name {
+    font-weight: bold; font-size: 0.9em;
+    margin-bottom: 8px; color: #fff;
+    display: flex; align-items: center; gap: 8px;
+}
+
+.agent-thought {
+    font-size: 0.8em; color: #aaa;
+    line-height: 1.4; font-style: italic;
+}
+
+.active-pulse {
+    width: 6px; height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--success);
+}
+
+/* Altri componenti */
+.market-section { display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+.wallet-section { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+
+.balance-card {
+    background: #0a1e1e;
+    border: 1px solid var(--primary);
+    padding: 15px; border-radius: 10px;
+}
+
+.asset-name { color: #fff; font-size: 1em; margin-bottom: 5px; }
+.asset-value { color: var(--success); font-size: 1.8em; font-weight: 900; }
+
+.history-card { background: #0c0c0e; border: 1px solid #222; padding: 15px; border-radius: 8px; }
+.section-title { color: var(--primary); font-size: 1em; margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+
+.chart-container { height: 420px; border-radius: 8px; overflow: hidden; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #333; }

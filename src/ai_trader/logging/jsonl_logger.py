@@ -3,7 +3,7 @@
 # Scrive ogni evento come riga JSON in un file .jsonl
 """
 Logger JSONL strutturato.
-Ogni log è una riga JSON con: timestamp, level, module, message, extra.
+Ogni log  una riga JSON con: timestamp, level, module, message, extra.
 """
 
 import json
@@ -70,10 +70,16 @@ class JsonlLogger:
 
         line = json.dumps(entry, ensure_ascii=False)
 
-        # Scrivi su file
+        # Scrivi su file con flush forzato (v10.8 Luminous Flow)
         try:
             with open(self.log_path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
+                f.flush()
+                # Forza il sistema operativo a scrivere fisicamente sul disco
+                try:
+                    os.fsync(f.fileno())
+                except:
+                    pass 
         except OSError as e:
             print(f"[LOGGER ERROR] Cannot write to {self.log_path}: {e}", file=sys.stderr)
 

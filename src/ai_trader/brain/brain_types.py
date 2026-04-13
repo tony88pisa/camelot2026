@@ -2,7 +2,7 @@
 # 2026-04-03 01:50 - Core Types for Brain Runtime
 """
 Types-as-Documentation: Rappresentazione dello stato dell'agente.
-Ogni classe descrive tassativamente ciò che il Brain può e deve manipolare.
+Ogni classe descrive tassativamente ci che il Brain pu e deve manipolare.
 """
 
 from typing import Any, Callable
@@ -68,16 +68,18 @@ class PersistentBrainState:
 @dataclass
 class BrainContext:
     """Integrazione e dependencies di tipo Read-Only per le passate Action Pure."""
-    settings: Any
-    exchange_adapter: Any
-    strategy_engine: Any
-    guardrail_engine: Any
-    execution_preview_engine: Any
-    memory_store: Any
-    logger: Any
-    event_logger: Any
-    clock: Any
-    now_fn: Callable[[], str]
+    settings: Any = None
+    exchange_adapter: Any = None
+    strategy_engine: Any = None
+    guardrail_engine: Any = None
+    execution_preview_engine: Any = None
+    memory_store: Any = None
+    logger: Any = None
+    event_logger: Any = None
+    clock: Any = None
+    now_fn: Callable[[], str] = field(default_factory=lambda: (lambda: ""))
+    mcp_orchestrator: Any = None
+    ollama_client: Any = None # v11.4: Integrazione IA Titan Brain
 
 
 @dataclass

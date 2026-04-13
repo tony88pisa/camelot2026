@@ -26,16 +26,15 @@ class StrategyPolicyEngine:
         logger.info("StrategyPolicyEngine allocato")
 
     def _normalize_symbol(self, symbol: str) -> str:
-        """Compatibilità stringa flatten"""
+        """Compatibilit stringa flatten"""
         return symbol.replace("/", "").replace("-", "").replace("_", "").upper()
 
-    def evaluate_signal(self, signal_input: SignalInput) -> StrategyDecision:
+    def evaluate_signal(self, signal_input: SignalInput, ai_confidence: float | None = None) -> StrategyDecision:
         """
-        Processa il segnale.
-        Se tutte le constraint della policy passano, genera un intent BUY_CANDIDATE.
-        Altrimenti retrocede a HOLD o SKIP compilando la thesis string.
-        # 2026-04-03 01:25
+        Processa il segnale integrando la confidenza neurale (v10.4).
         """
+        # Se ai_confidence  fornito, sovrascrive o integra signal_quality
+        actual_confidence = ai_confidence if ai_confidence is not None else signal_input.signal_quality
         logger.info("Valutazione Segnale", symbol=signal_input.symbol, sq=signal_input.signal_quality)
         
         norm_sym = self._normalize_symbol(signal_input.symbol)
@@ -45,7 +44,7 @@ class StrategyPolicyEngine:
         action = "HOLD"
         status = "hold"
         thesis = "Neutral assessment."
-        confidence = signal_input.signal_quality
+        confidence = actual_confidence
 
         # --- GATES DI SICUREZZA INFRASTRUTTURALE ---
         
@@ -83,11 +82,11 @@ class StrategyPolicyEngine:
             reasons.append(ReasonCode.HIGH_VOLATILITY)
 
         if len(reasons) > 0:
-            # Determinare se la motivazione è forte (SKIP) o debole (HOLD)
+            # Determinare se la motivazione  forte (SKIP) o debole (HOLD)
             if ReasonCode.HIGH_VOLATILITY in reasons or ReasonCode.REGIME_BLOCKED in reasons:
                 action = "SKIP"
                 status = "blocked"
-                thesis = f"SKIP: {norm_sym} mercato instabile, regime o volatilità non consentiti dalla policy."
+                thesis = f"SKIP: {norm_sym} mercato instabile, regime o volatilit non consentiti dalla policy."
                 confidence = 0.0
             else:
                 action = "HOLD"
@@ -105,9 +104,25 @@ class StrategyPolicyEngine:
         action = "BUY"
         status = "buy_candidate"
         reasons.append(ReasonCode.BUY_CANDIDATE)
-        thesis = f"BUY candidate: {norm_sym} in regime compatibile ({signal_input.regime}), trend elevato ({signal_input.trend_score}), volatilità controllata. Quality ok {signal_input.signal_quality}."
+        thesis = f"BUY candidate: {norm_sym} in regime compatibile ({signal_input.regime}), trend elevato ({signal_input.trend_score}), volatilit controllata. AI Confidence: {confidence}."
         
         return self._build_decision(norm_sym, action, status, reasons, confidence, signal_input, thesis)
+
+    def calculate_dynamic_budget(self, base_budget: float, confidence: float) -> float:
+        """
+        Calcola il budget finale basato sulla confidenza neurale (0-100).
+        Logic: Budget = Base * (Confidence / 100). 
+        Assicura che non si scenda mai sotto il minimo vitale (10.50 EUR per Binance).
+        """
+        # Se la confidenza  bassissima (<30), riduciamo al minimo
+        if confidence < 30:
+            return 10.50
+        
+        # Scaling lineare: al 100% di confidenza usiamo il base_budget pieno
+        scaled_budget = base_budget * (confidence / 100.0)
+        
+        # Clamp tra 10.50 (min notional + margine) e base_budget
+        return max(10.50, min(base_budget, scaled_budget))
 
     def _build_decision(self, norm_sym: str, action: str, status: str, reasons: list[ReasonCode], 
                         confidence: float, raw_signal: SignalInput, thesis: str) -> StrategyDecision:

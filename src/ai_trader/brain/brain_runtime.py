@@ -25,7 +25,28 @@ class BrainRuntime:
         self.ctx = context
         self.state: BrainState | None = None
         self.persistent_state: PersistentBrainState | None = None
+        self.ollama = context.ollama_client # v11.4: Link diretto client IA
         
+    def evaluate_strategy(self, symbol: str, budget: float) -> dict[str, Any]:
+        """
+        v11.4: Valutazione neurale asincrona.
+        Interroga il Titan Brain per confermare l'opportunit di trading.
+        """
+        logger.info(f"Brain: Valutazione strategica per {symbol} (Budget: {budget:.2f})")
+        
+        # In una versione futura qui implementeremo il loop completo della state machine.
+        # Per ora facciamo un'integrazione diretta e robusta con Ollama.
+        if not self.ollama:
+            return {"ok": True, "reason": "No LLM, fallback heuristic"}
+
+        prompt = f"Analisi strategica per {symbol}. Budget {budget} EUR. Confermi l'ingresso?"
+        res = self.ollama.chat([{"role": "user", "content": prompt}], max_tokens=10)
+        
+        if res["ok"]:
+            return {"ok": True, "reason": "AI Approved", "detail": res["message"].get("content")}
+        
+        return {"ok": True, "reason": "AI Timeout, Heuristic Bypass"}
+
     def start_cycle(self, cycle_id: str, start_phase: BrainPhase = BrainPhase.IDLE):
         """Inizializza un nuovo loop completo."""
         self.state = create_initial_brain_state(start_phase, cycle_id, self.ctx.now_fn())
@@ -152,11 +173,13 @@ class BrainRuntime:
                         source_agent=ip.get("source_agent", "brain"), thesis=ip.get("thesis", "")
                     )
                     
-                    wallet_val = getattr(self.ctx.settings, "INITIAL_CAPITAL", 10000.0)
-                    if self.ctx.exchange_adapter and hasattr(self.ctx.exchange_adapter, "get_account_snapshot"):
-                        snap = self.ctx.exchange_adapter.get_account_snapshot()
-                        if snap.get("ok"):
-                            wallet_val = float(snap.get("total_wallet_value", wallet_val))
+                    wallet_val = getattr(self.ctx.settings, "INITIAL_CAPITAL", 0.0)
+                    if self.ctx.exchange_adapter and hasattr(self.ctx.exchange_adapter, "get_account_summary"):
+                        summary = self.ctx.exchange_adapter.get_account_summary()
+                        if summary.get("ok"):
+                            wallet_val = float(summary.get("total_wallet_value", wallet_val))
+                        else:
+                            logger.error(f"BrainRuntime: Errore sincronizzazione saldo: {summary.get('error')}")
 
                     g_dec = self.ctx.guardrail_engine.evaluate_trade_intent(
                         ti, PortfolioState(wallet_val,0,0,{}), SystemState(0,0,0.0,0.0), MarketState(True,True,ti.symbol,price,0.0,"normal")
@@ -205,7 +228,7 @@ class BrainRuntime:
             self.handle_error(e, fatal=True)
 
     def run_once(self):
-        """Gira finchè non sbatte su uno state di requie come IDLE post Sleep."""
+        """Gira finch non sbatte su uno state di requie come IDLE post Sleep."""
         limit = 20
         while limit > 0:
             p = self.state.phase

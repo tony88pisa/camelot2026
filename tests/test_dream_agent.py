@@ -8,7 +8,7 @@ Copre:
 - Effetto nessun episodio -> nessuna lesson
 - Effetto ripetizioni -> creazione deterministica lesson
 - Controlli su duplicati (niente double creation)
-- Integrità ciclo (MEMORY.md viene aggiornato)
+- Integrit ciclo (MEMORY.md viene aggiornato)
 """
 
 import pytest
@@ -59,7 +59,7 @@ class TestDreamAgent:
         assert index_file.exists()
 
     def test_frequent_pattern_detection(self, dream_agent_isolated):
-        """Se ci sono 3 o più episodi con lo stesso kind, crea una lesson."""
+        """Se ci sono 3 o pi episodi con lo stesso kind, crea una lesson."""
         agent = dream_agent_isolated["agent"]
         eps = dream_agent_isolated["episodes"]
         
@@ -91,7 +91,7 @@ class TestDreamAgent:
         assert res["breakdown"]["trading"] == 1
         
     def test_anti_duplication(self, dream_agent_isolated):
-        """Non deve creare una lezione per lo stesso pattern più volte di seguito."""
+        """Non deve creare una lezione per lo stesso pattern pi volte di seguito."""
         agent = dream_agent_isolated["agent"]
         eps = dream_agent_isolated["episodes"]
         

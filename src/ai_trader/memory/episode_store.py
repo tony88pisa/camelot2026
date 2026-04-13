@@ -2,12 +2,12 @@
 # 2026-04-02 23:05 - Store per episodi (eventi, decisioni, osservazioni)
 # Scrittura JSONL append-only, lettura robusta, classificazione per category
 """
-EpisodeStore — storage persistente per episodi del bot diviso per categoria.
+EpisodeStore  storage persistente per episodi del bot diviso per categoria.
 
 memdir/episodes/
-├── trading/
-├── research/
-└── system/
+ trading/
+ research/
+ system/
 """
 
 import json
@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from ai_trader.logging.jsonl_logger import get_logger
+from ai_trader.mcp.mcp_sse_handler import McpSseHandler
+
 
 # 2026-04-02 23:05 - Logger per questo modulo
 logger = get_logger("memory_episodes")
@@ -41,7 +43,30 @@ class EpisodeStore:
         for category in ALLOWED_CATEGORIES:
             (self.base_dir / category).mkdir(parents=True, exist_ok=True)
             
-        logger.info("EpisodeStore inizializzato", base_dir=str(self.base_dir))
+        # Inizializzazione SuperMemory Bridge v10.21 (NON-BLOCKING)
+        import threading
+        from ai_trader.config.settings import get_settings
+        st = get_settings()
+        self.mcp = None
+        self.mcp_ready = False
+        
+        if st.SUPERMEMORY_TOKEN:
+            self.mcp = McpSseHandler(st.SUPERMEMORY_URL, st.SUPERMEMORY_TOKEN)
+            def _async_connect():
+                logger.info("Avvio connessione SuperMemory (Episodes) in background...")
+                self.mcp_ready = self.mcp.connect()
+                if self.mcp_ready:
+                    logger.info("SuperMemory Episode Bridge Attivo (Perfect Circle)")
+                else:
+                    logger.warning("SuperMemory Episode Bridge offline, operativit locale attiva.")
+            
+            thread = threading.Thread(target=_async_connect, daemon=True)
+            thread.start()
+        else:
+            self.mcp = None
+            self.mcp_ready = False
+            
+        logger.info("EpisodeStore inizializzato", base_dir=str(self.base_dir), mcp_sync=self.mcp_ready)
 
     def _get_file_path(self, category: str, dt: datetime | None = None) -> Path:
         """# 2026-04-02 23:05"""
@@ -92,21 +117,46 @@ class EpisodeStore:
             line = json.dumps(episode, ensure_ascii=False, default=str)
             with open(file_path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
-            logger.info("Episodio salvato", id=episode_id, category=category, kind=kind)
+            logger.info("Episodio salvato localmente", id=episode_id, category=category, kind=kind)
+            
+            # Sincronizzazione con SuperMemory
+            if self.mcp_ready:
+                self._sync_to_supermemory(episode, category)
+
         except OSError as e:
             logger.error("Errore scrittura episodio", error_msg=str(e), file=str(file_path))
 
         return episode_id
+
+    def _sync_to_supermemory(self, episode: dict[str, Any], category: str):
+        """Invia una rappresentazione semantica dell'episodio a SuperMemory."""
+        try:
+            kind = episode.get("kind", "unknown")
+            payload = episode.get("payload", {})
+            tags = ", ".join(episode.get("tags", []))
+            
+            # Costruiamo una stringa semantica per il grafo
+            # Il tool 'memory' di SuperMemory accetta 'input' come testo da analizzare e salvare
+            content = f"[KIND: {kind}] [CAT: {category}] [TAGS: {tags}] Event: {json.dumps(payload, default=str)}"
+            
+            res = self.mcp.call_tool("memory", {"content": content})
+            if res.get("ok"):
+                logger.debug("Episodio sincronizzato su SuperMemory", id=episode["id"])
+            else:
+                logger.warning("Sincronizzazione SuperMemory fallita", error=res.get("error"))
+        except Exception as e:
+            logger.error("Eccezione durante sync SuperMemory", error=str(e))
 
     def load_episodes(
         self,
         category: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
+        limit: int | None = None
     ) -> list[dict[str, Any]]:
         """
-        API richiesta: Carica episodi di una categoria, con filtri data opzionali.
-        # 2026-04-02 23:05
+        API richiesta: Carica episodi di una categoria, con filtri data opzionali e limite risultati.
+        # 2026-04-13 - v10.42: Aggiunto supporto a 'limit' e ricerca estesa.
         """
         from datetime import timedelta
         
@@ -114,10 +164,14 @@ class EpisodeStore:
         if not cat_dir.exists():
             return []
 
-        # Default a log di "oggi" se since/until non specificati
+        # Se limit  presente e date no, cerchiamo negli ultimi 7 giorni per essere sicuri di trovare qualcosa
         if since is None and until is None:
-            since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            until = since + timedelta(days=1)
+            if limit:
+                since = datetime.now(timezone.utc) - timedelta(days=7)
+                until = datetime.now(timezone.utc)
+            else:
+                since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                until = since + timedelta(days=1)
 
         # Parse date
         if isinstance(since, str) and since:
@@ -136,10 +190,15 @@ class EpisodeStore:
 
         episodes: list[dict[str, Any]] = []
         current = since_dt
-        while current <= until_dt and current.year < 2100: # Prevenzione loop inf in caso datetime.max
+        while current <= until_dt and current.year < 2100: 
             file_path = self._get_file_path(category, current)
             episodes.extend(self._read_jsonl(file_path))
             current += timedelta(days=1)
+
+        # Applica ordinamento e limite se richiesto
+        if limit:
+            episodes.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            return episodes[:limit]
 
         return episodes
 

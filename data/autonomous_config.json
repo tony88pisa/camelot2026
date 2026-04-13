@@ -1,0 +1,10 @@
+{
+    "EVOLUTION_ENABLED": true,
+    "WHITELIST_PAIRS": [
+        "PEPEEUR"
+    ],
+    "FORCED_HUNT": false,
+    "LAST_EVOLUTION": "2026-04-12T19:55:00",
+    "LEARNING_RATE": 0.1,
+    "RISK_LEVEL": "medium"
+}
