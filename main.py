@@ -29,6 +29,7 @@ from ai_trader.brain.brain_types import BrainContext # v11.4: Import context typ
 from ai_trader.memory.episode_store import EpisodeStore
 from ai_trader.core.ollama_client import OllamaClient
 from ai_trader.risk.risk_kernel import RiskKernel
+from ai_trader.risk.risk_state_tracker import RiskStateTracker
 
 logger = get_logger("main_reactor")
 
@@ -45,7 +46,8 @@ class ApexReactor:
         self.settings = settings.get_settings()
         
         # Inizializzazione Sottosistemi
-        self.adapter = BinanceAdapter(mode=self.mode) # v11.1: Fix propagazione modo
+        self.adapter = BinanceAdapter(mode=self.mode) 
+        self.risk_tracker = RiskStateTracker() # v12.0: Memoria di Rischio Integrata
         
         # v11.1: Iniezione credenziali nello streamer per snapshots reali
         self.streamer = BinanceStreamer(
@@ -94,6 +96,7 @@ class ApexReactor:
         # 3. Sincronizzazione Saldo Reale (Sovereign Holism)
         summary = self.adapter.get_account_summary()
         self.current_live_budget = summary.get("free_quote_balance", 0.0)
+        self.risk_tracker.initialize_from_summary(summary) # v12.0: Bootstrapping Rischio
         print(f"I  [SYSTEM] Saldo Iniziale Sincronizzato: {self.current_live_budget:.2f} {self.settings.QUOTE_CURRENCY}")
         
         # 4. Neural Heat-Up (v11.3 Titan Brain)
@@ -270,22 +273,9 @@ class ApexReactor:
 
         risk_kernel = RiskKernel() 
         
-        # Recupero Stato Portafoglio e Sistema (Snapshot)
-        # Nota: In Fase 2 usiamo dati sintetici/adapter; PaladinAgent automatizzer questo in Fase 3.
-        summary = self.adapter.get_account_summary()
-        portfolio = PortfolioState(
-            wallet_value=summary.get("total_balance", 100.0), # Fallback safety
-            current_total_exposure=summary.get("total_exposure", 0.0),
-            open_positions_count=0, # Placeholder
-            per_symbol_exposure={} # Placeholder
-        )
-        
-        system = SystemState(
-            consecutive_losses=0, # Placeholder
-            consecutive_errors=0,
-            daily_drawdown_pct=0.0,
-            weekly_drawdown_pct=0.0
-        )
+        # Recupero Stato Portafoglio e Sistema REALE (Snapshot v12.0)
+        portfolio = self.risk_tracker.get_portfolio_state()
+        system = self.risk_tracker.get_system_state()
 
         intent = TradeIntent(
             symbol=symbol,
@@ -299,7 +289,8 @@ class ApexReactor:
         risk_decision = risk_kernel.evaluate_intent(intent, portfolio, system)
         
         if not risk_decision.allowed:
-            logger.warning(f"RISK KERNEL BLOCK: {risk_decision.reason_codes} ({symbol} {side})")
+            self.risk_tracker.record_risk_block(risk_decision.reason_codes[0])
+            logger.warning(f"RISK KERNEL BLOCK: {risk_decision.reason_codes} ({symbol} {side} Snapshot: {risk_decision.risk_snapshot})")
             return
 
         # 2. Pre-flight Normalizzatore (Sovereign Protection - FASE 1)
@@ -323,17 +314,23 @@ class ApexReactor:
                 avg_price = float(order.get("avg_price", 0.0))
                 
                 if executed_qty > 0 and avg_price > 0:
+                    # Registrazione nel Tracker (State Hardening)
+                    self.risk_tracker.record_order_fill(symbol, side, (executed_qty * avg_price), executed_qty)
+                    
                     if side == "BUY":
                         self.grid_engine.record_buy(symbol, action["level_index"], avg_price, executed_qty)
                     else:
                         self.grid_engine.record_sell(symbol, action["level_index"], avg_price, executed_qty)
                     logger.info(f"APEX ORDER SUCCESS: {symbol} {side} Filled: {executed_qty} @ {avg_price}")
                 else:
-                    logger.error(f"APEX RECONCILIATION FAILURE: {symbol} Ordine OK ma fill nullo. Status: {order.get('status')}")
+                    self.risk_tracker.record_order_failure("zero_fill")
+                    logger.error(f"APEX RECONCILIATION FAILURE: {symbol} Fill nullo. Status: {order.get('status')}")
             else:
+                self.risk_tracker.record_order_failure("rejected")
                 logger.error(f"APEX EXECUTION REJECTED: {symbol} Error: {order.get('error')}")
                 
         except Exception as e:
+            self.risk_tracker.record_order_failure("crash")
             logger.error(f"APEX CRITICAL CRASH: Order {symbol}", error=str(e))
 
     async def run(self):
