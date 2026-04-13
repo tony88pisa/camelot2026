@@ -30,6 +30,7 @@ from ai_trader.memory.episode_store import EpisodeStore
 from ai_trader.core.ollama_client import OllamaClient
 from ai_trader.risk.risk_kernel import RiskKernel
 from ai_trader.risk.risk_state_tracker import RiskStateTracker
+from ai_trader.memory.lesson_store import LessonStore
 
 logger = get_logger("main_reactor")
 
@@ -47,7 +48,8 @@ class ApexReactor:
         
         # Inizializzazione Sottosistemi
         self.adapter = BinanceAdapter(mode=self.mode) 
-        self.risk_tracker = RiskStateTracker() # v12.0: Memoria di Rischio Integrata
+        self.lesson_store = LessonStore() # v12.0: Bridge Persistenza Neurale
+        self.risk_tracker = RiskStateTracker(lesson_store=self.lesson_store)
         
         # v11.1: Iniezione credenziali nello streamer per snapshots reali
         self.streamer = BinanceStreamer(
@@ -134,7 +136,10 @@ class ApexReactor:
         """Sequenza di avvio sicura v12.0 con Live Readiness Gate."""
         print(f"[v12.0] AVVIO APEX REACTOR... (Mode: {self.mode})")
         
-        # 1. Inizializzazione Risk Kernel
+        # 1. Recupero Stato da Memoria Persistente (v12.0)
+        self.risk_tracker.restore_recent_incident_state()
+        
+        # 2. Inizializzazione Risk Kernel
         self.risk_kernel = RiskKernel()
 
         # 2. Avvio Streaming Core
@@ -383,13 +388,19 @@ class ApexReactor:
                     logger.info(f"APEX ORDER SUCCESS: {symbol} {side} Filled: {executed_qty} @ {avg_price}")
                 else:
                     self.risk_tracker.record_order_failure("zero_fill")
+                    # Persistenza Incidente su Errori Ripetuti
+                    if self.risk_tracker.consecutive_errors >= 3:
+                        self.risk_tracker.emit_incident_lesson("Continuous Zero Fill", "EXCHANGE_FAILURE", "critical")
                     logger.error(f"APEX RECONCILIATION FAILURE: {symbol} Fill nullo. Status: {order.get('status')}")
             else:
                 self.risk_tracker.record_order_failure("rejected")
+                if self.risk_tracker.consecutive_errors >= 3:
+                    self.risk_tracker.emit_incident_lesson("Repeated Rejection", "REJECTION_STREAK", "warning")
                 logger.error(f"APEX EXECUTION REJECTED: {symbol} Error: {order.get('error')}")
                 
         except Exception as e:
             self.risk_tracker.record_order_failure("crash")
+            self.risk_tracker.emit_incident_lesson(f"Reactor Crash: {symbol}", "CRITICAL_CRASH", "critical")
             logger.error(f"APEX CRITICAL CRASH: Order {symbol}", error=str(e))
 
     async def run(self):

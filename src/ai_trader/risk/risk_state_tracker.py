@@ -6,13 +6,15 @@ Memorizza metriche di esposizione, pnl stimato e serie di errori/perdite.
 """
 
 import time
-from typing import Dict, Any
+import json
+import re
+from typing import Dict, Any, Optional
 from ai_trader.risk.policy_models import PortfolioState, SystemState
 
 class RiskStateTracker:
     """Tracking deterministico dello stato di rischio per il RiskKernel."""
     
-    def __init__(self):
+    def __init__(self, lesson_store=None):
         # Session state
         self.session_start_time = time.time()
         self.session_start_balance = 0.0
@@ -34,17 +36,104 @@ class RiskStateTracker:
         self.system_cooldown_until = None
         self.symbol_cooldowns: Dict[str, float] = {}
         
+        # Persistence Bridge (v12.0)
+        self.lesson_store = lesson_store
+        
         # Audit
         self.last_risk_block_reason = None
+
+    def attach_lesson_store(self, store):
+        """Inietta il ponte di memoria persistente."""
+        self.lesson_store = store
 
     def initialize_from_summary(self, summary: dict):
         """Sincronizzazione iniziale dall'account summary reale."""
         self.session_start_balance = summary.get("total_balance", 0.0)
         self.current_wallet_value = self.session_start_balance
         self.current_total_exposure = summary.get("total_exposure", 0.0)
-        # Exposure granulare non ancora mappata in summary, inizializziamo vuota
         self.per_symbol_exposure = {} 
-        self.open_positions_count = 0 # Placeholder per integrazione posizioni reali
+        self.open_positions_count = 0 
+
+    def emit_incident_lesson(self, title: str, incident_type: str, severity: str = "warning"):
+        """Emette una lezione strutturata (JSON-in-Markdown) verso Supermemory."""
+        if not self.lesson_store:
+            return
+
+        now_ts = time.time()
+        # Payload strutturato per il restore deterministico
+        incident_data = {
+            "version": "1.0",
+            "incident_type": incident_type,
+            "severity": severity,
+            "occurred_at": now_ts,
+            "consecutive_errors": self.consecutive_errors,
+            "consecutive_losses": self.consecutive_losses,
+            "daily_drawdown_pct": self.estimated_daily_drawdown_pct,
+            "session_pnl_estimate": self.session_pnl,
+            "system_cooldown_until": self.system_cooldown_until,
+            "reason_codes": [self.last_risk_block_reason] if self.last_risk_block_reason else []
+        }
+
+        content = f"""## incident_payload
+```json
+{json.dumps(incident_data, indent=2)}
+```
+
+### Context
+L'incidente di tipo **{incident_type}** è stato rilevato durante l'operatività del RiskKernel.
+Serie errori: {self.consecutive_errors}
+Cooldown fino a: {self.system_cooldown_until}
+"""
+        self.lesson_store.append_lesson(
+            category="system",
+            title=f"RISK_INCIDENT: {title}",
+            content=content,
+            tags=["risk_kernel", incident_type, severity]
+        )
+
+    def restore_recent_incident_state(self, lookback_seconds: int = 14400):
+        """Ripristina lo stato (cooldown/errori) analizzando le ultime lezioni persistenti."""
+        if not self.lesson_store:
+            return
+
+        lessons = self.lesson_store.read_lessons("system")
+        if not lessons:
+            return
+
+        # Prendiamo l'ultima (ordinamento per filename YYYY-MM-DD-lesson-XXX)
+        last_lesson_meta = lessons[-1]
+        
+        try:
+            # Leggiamo il file reale dal path restituito dal meta
+            from pathlib import Path
+            content = Path(last_lesson_meta["path"]).read_text(encoding="utf-8")
+            
+            # Parsing blocco JSON strutturato
+            match = re.search(r"```json\n(.*?)\n```", content, re.DOTALL)
+            if not match:
+                # [NOT RECOVERABLE] - Dati non strutturati
+                return
+
+            data = json.loads(match.group(1))
+            occurred_at = data.get("occurred_at", 0)
+            
+            # Verifichiamo se l'incidente  troppo vecchio (> 4 ore)
+            if (time.time() - occurred_at) > lookback_seconds:
+                return
+
+            # Ripristino deterministico
+            self.consecutive_errors = data.get("consecutive_errors", 0)
+            self.consecutive_losses = data.get("consecutive_losses", 0)
+            
+            cooldown_until = data.get("system_cooldown_until")
+            if cooldown_until and cooldown_until > time.time():
+                self.system_cooldown_until = cooldown_until
+                
+            print(f"I  [RISK] Stato Ripristinato da Memoria Persistente (Incidente: {data['incident_type']})")
+            
+        except Exception:
+            # [NOT RECOVERABLE] - Silenzioso per non bloccare il boot
+            pass
 
     def record_order_fill(self, symbol: str, side: str, notional: float, qty: float):
         """Aggiorna lo stato dopo un fill confermato."""
