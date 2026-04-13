@@ -124,21 +124,49 @@ class BrainRuntime:
 
             elif p == BrainPhase.ANALYZE:
                 sym = self.state.current_symbol
-                price = self.state.buffer_memory.get("market_price", 0.0)
-                
-                # Modulo 09 (Strategy Evaluate Signal) proxy hook
-                dec = b_actions.analyze_symbol(self.ctx, sym, price)
-                self.state.buffer_memory["strategy_decision"] = dec
-                
-                if dec.ok and dec.status == "buy_candidate":
-                    self._emit_transition(BrainEventType.ANALYSIS_OK)
-                else:
-                    # Hold o Skip fallbacks
-                    self.state.buffer_memory["action"] = dec.action
-                    self.state.buffer_memory["skip_reason"] = dec.reason_codes
-                    self.state.buffer_memory["skip_status"] = dec.status
-                    self.state.buffer_memory["skip_confidence"] = getattr(dec, "confidence", 0.0)
-                    self._emit_transition(BrainEventType.ANALYSIS_FAILED)
+                price = float(self.state.buffer_memory.get("market_price", 0.0) or 0.0)
+
+                try:
+                    from ai_trader.strategy.policy_models import StrategyDecision
+
+                    dec = b_actions.analyze_symbol(self.ctx, sym, price)
+
+                    if not isinstance(dec, StrategyDecision):
+                        raise TypeError(f"StrategyDecision atteso, ottenuto: {type(dec).__name__}")
+
+                    if not isinstance(dec.reason_codes, list):
+                        raise TypeError("StrategyDecision.reason_codes deve essere list[str]")
+
+                    if not isinstance(dec.intent_preview, dict):
+                        raise TypeError("StrategyDecision.intent_preview deve essere dict")
+
+                    self.state.buffer_memory["strategy_decision"] = dec
+                    self.state.buffer_memory["decision_status"] = dec.status
+                    self.state.buffer_memory["decision_action"] = dec.action
+                    self.state.buffer_memory["decision_reason_codes"] = dec.reason_codes
+                    self.state.buffer_memory["decision_confidence"] = getattr(dec, "confidence", 0.0)
+                    self.state.buffer_memory["decision_error"] = dec.error
+
+                    if dec.ok and dec.status == "buy_candidate":
+                        self.state.buffer_memory.pop("skip_reason", None)
+                        self.state.buffer_memory.pop("skip_status", None)
+                        self.state.buffer_memory.pop("skip_confidence", None)
+                        self._emit_transition(BrainEventType.ANALYSIS_OK)
+
+                    elif dec.status in {"hold", "skip", "blocked"}:
+                        self.state.buffer_memory["action"] = dec.action
+                        self.state.buffer_memory["skip_reason"] = dec.reason_codes
+                        self.state.buffer_memory["skip_status"] = dec.status
+                        self.state.buffer_memory["skip_confidence"] = getattr(dec, "confidence", 0.0)
+                        self._emit_transition(BrainEventType.ANALYSIS_FAILED)
+
+                    else:
+                        raise RuntimeError(
+                            f"StrategyDecision non riconosciuto: ok={dec.ok}, status={dec.status}, action={dec.action}"
+                        )
+
+                except Exception as e:
+                    self.handle_error(e, fatal=True)
 
             elif p == BrainPhase.PROPOSE:
                 # Dal dec intent costringiamo il guardrail trigger
@@ -226,23 +254,3 @@ class BrainRuntime:
 
         except Exception as e:
             self.handle_error(e, fatal=True)
-
-    def run_once(self):
-        """Gira finch non sbatte su uno state di requie come IDLE post Sleep."""
-        limit = 20
-        while limit > 0:
-            p = self.state.phase
-            if p == BrainPhase.IDLE and self.state.iteration_count > 0:
-                break
-                
-            self.step()
-            limit -= 1
-            
-    def run_forever(self, sleep_sec: float = 1.0):
-        """Demone infinito."""
-        while True:
-            if not self.state or self.state.phase == BrainPhase.IDLE:
-                from datetime import datetime
-                self.start_cycle(f"CYC-{int(datetime.now().timestamp())}")
-            self.step()
-            time.sleep(sleep_sec)

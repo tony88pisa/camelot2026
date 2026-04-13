@@ -51,49 +51,63 @@ def mock_context():
 
 
 def test_runtime_complete_lifecycle(mock_context):
-    runtime = BrainRuntime(mock_context)
-    runtime.start_cycle("CYCLE_MOCK")
+    from unittest.mock import patch
     
-    assert runtime.state is not None
-    assert runtime.state.phase == BrainPhase.IDLE
-    assert runtime.state.current_symbol == "BTCUSDT"
-    
-    # Tick -> Observe
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.OBSERVE
-    
-    # Observe -> Analyze
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.ANALYZE
-    assert runtime.state.buffer_memory.get("market_price") == 50000.0
-    
-    # Analyze -> Propose
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.PROPOSE
-    assert "strategy_decision" in runtime.state.buffer_memory
-    
-    # Propose -> Guardrail Checked
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.GUARDRAIL_CHECK
-    
-    # Guardrail Check -> Exec Preview
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.EXECUTION_PREVIEW
-    
-    # Exec -> Review
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.REVIEW
-    assert "execution_decision" in runtime.state.buffer_memory
-    
-    # Review -> Learn
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.LEARN
-    assert "review_summary" in runtime.state.buffer_memory
-    
-    # Learn -> Sleep
-    runtime.step()
-    assert runtime.state.phase == BrainPhase.SLEEP
-    mock_context.memory_store.append_episode.assert_called_once()
+    # Mock dell'analisi tecnica per garantire il passaggio a PROPOSE
+    with patch("ai_trader.analysis.market_analyzer.MarketAnalyzer") as mock_analyzer_cls:
+        mock_analyzer = mock_analyzer_cls.return_value
+        mock_res = MagicMock()
+        mock_res.ok = True
+        mock_res.trend_score = 0.9
+        mock_res.volatility_score = 0.01
+        mock_res.regime = "bull"
+        mock_res.signal_quality = 0.9
+        mock_res.recommendation = "BUY"
+        mock_analyzer.analyze.return_value = mock_res
+
+        runtime = BrainRuntime(mock_context)
+        runtime.start_cycle("CYCLE_MOCK")
+        
+        assert runtime.state is not None
+        assert runtime.state.phase == BrainPhase.IDLE
+        assert runtime.state.current_symbol == "BTCUSDT"
+        
+        # Tick -> Observe
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.OBSERVE
+        
+        # Observe -> Analyze
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.ANALYZE
+        assert runtime.state.buffer_memory.get("market_price") == 50000.0
+        
+        # Analyze -> Propose
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.PROPOSE
+        assert "strategy_decision" in runtime.state.buffer_memory
+        
+        # Propose -> Guardrail Checked
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.GUARDRAIL_CHECK
+        
+        # Guardrail Check -> Exec Preview
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.EXECUTION_PREVIEW
+        
+        # Exec -> Review
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.REVIEW
+        assert "execution_decision" in runtime.state.buffer_memory
+        
+        # Review -> Learn
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.LEARN
+        assert "review_summary" in runtime.state.buffer_memory
+        
+        # Learn -> Sleep
+        runtime.step()
+        assert runtime.state.phase == BrainPhase.SLEEP
+        mock_context.memory_store.append_episode.assert_called_once()
 
 
 def test_runtime_error_fallback(mock_context):

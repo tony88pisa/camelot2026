@@ -58,45 +58,99 @@ def observe_market(ctx: BrainContext, symbol: str) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
-def analyze_symbol(ctx: BrainContext, symbol: str, price: float) -> Any:
-    """Convoglia verso Modulo 09 (Strategy) usando dati reali dal MarketAnalyzer."""
-    if not ctx.strategy_engine:
-        raise RuntimeError("Strategy engine off")
-    
-    # Inizializza MarketAnalyzer se necessario (o usalo se presente nel contesto)
+def analyze_symbol(ctx: BrainContext, symbol: str, price: float):
+    """Convoglia verso Modulo 09 (Strategy) usando dati reali dal MarketAnalyzer.
+    Garantisce sempre un ritorno coerente di tipo StrategyDecision.
+    """
     from ai_trader.analysis.market_analyzer import MarketAnalyzer
-    analyzer = MarketAnalyzer(exchange_adapter=ctx.exchange_adapter)
-    
-    # Esegue analisi tecnica reale
-    analysis = analyzer.analyze(symbol)
-    
-    if not analysis.ok:
-        # Fallback prudente se l'analisi fallisce
-        logger.warning("Analisi tecnica fallita, uso fallback", symbol=symbol, error=analysis.error)
-        trend_score = 0.0
-        volatility_score = 0.05
-        regime = "uncertain"
-        signal_quality = 0.0
-    else:
-        trend_score = analysis.trend_score
-        volatility_score = analysis.volatility_score
-        regime = analysis.regime
-        signal_quality = analysis.signal_quality
-        
-    s_in = SignalInput(
-        symbol=symbol,
-        price=price,
-        timestamp=ctx.now_fn(),
-        trend_score=trend_score,
-        volatility_score=volatility_score,
-        regime=regime,
-        signal_quality=signal_quality,
-        adapter_health=True,
-        market_snapshot_available=True,
-        memory_summary=analysis.recommendation if analysis.ok else "HOLD"
-    )
-    
-    return ctx.strategy_engine.evaluate_signal(s_in)
+    from ai_trader.strategy.policy_models import StrategyDecision, SignalInput, ReasonCode
+
+    if not ctx.strategy_engine:
+        return StrategyDecision(
+            ok=False,
+            status="blocked",
+            action="SKIP",
+            normalized_symbol=symbol.upper(),
+            signal_quality=0.0,
+            trend_score=0.0,
+            volatility_score=1.0,
+            confidence=0.0,
+            reason_codes=[ReasonCode.ADAPTER_UNAVAILABLE.value],
+            thesis="Strategy engine unavailable.",
+            intent_preview={},
+            error="Strategy engine off",
+        )
+
+    try:
+        analyzer = MarketAnalyzer(exchange_adapter=ctx.exchange_adapter)
+        analysis = analyzer.analyze(symbol)
+
+        if not analysis.ok:
+            logger.warning(
+                "Analisi tecnica fallita, uso fallback prudente",
+                symbol=symbol,
+                error=analysis.error,
+            )
+            trend_score = 0.0
+            volatility_score = 0.05
+            regime = "uncertain"
+            signal_quality = 0.0
+            memory_summary = "HOLD"
+        else:
+            trend_score = analysis.trend_score
+            volatility_score = analysis.volatility_score
+            regime = analysis.regime
+            signal_quality = analysis.signal_quality
+            memory_summary = analysis.recommendation
+
+        s_in = SignalInput(
+            symbol=symbol,
+            price=float(price or 0.0),
+            timestamp=ctx.now_fn(),
+            trend_score=trend_score,
+            volatility_score=volatility_score,
+            regime=regime,
+            signal_quality=signal_quality,
+            adapter_health=ctx.exchange_adapter is not None,
+            market_snapshot_available=True,
+            memory_summary=memory_summary,
+        )
+
+        dec = ctx.strategy_engine.evaluate_signal(s_in)
+
+        if not isinstance(dec, StrategyDecision):
+            raise TypeError(f"StrategyDecision atteso, ottenuto: {type(dec).__name__}")
+
+        if dec.status not in {"buy_candidate", "hold", "skip", "blocked"}:
+            raise ValueError(f"StrategyDecision.status non valido: {dec.status}")
+
+        if dec.action not in {"BUY", "HOLD", "SKIP"}:
+            raise ValueError(f"StrategyDecision.action non valida: {dec.action}")
+
+        if not isinstance(dec.reason_codes, list):
+            raise TypeError("StrategyDecision.reason_codes deve essere list[str]")
+
+        if not isinstance(dec.intent_preview, dict):
+            raise TypeError("StrategyDecision.intent_preview deve essere dict")
+
+        return dec
+
+    except Exception as e:
+        logger.error("analyze_symbol crash protetto", symbol=symbol, error=str(e))
+        return StrategyDecision(
+            ok=False,
+            status="hold",
+            action="HOLD",
+            normalized_symbol=symbol.upper(),
+            signal_quality=0.0,
+            trend_score=0.0,
+            volatility_score=1.0,
+            confidence=0.0,
+            reason_codes=[ReasonCode.INVALID_SIGNAL_INPUT.value],
+            thesis="Protected fallback after analysis/strategy failure.",
+            intent_preview={},
+            error=str(e),
+        )
 
 
 def build_execution_preview(ctx: BrainContext, intent_preview: dict[str, Any], market_price: float) -> Any:

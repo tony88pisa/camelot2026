@@ -183,18 +183,56 @@ class ApexReactor:
         for action in actions:
             await self._execute_apex_order(action)
 
+    def _pre_flight_check_order(self, symbol, side, qty):
+        """Validazione deterministica pre-esecuzione v12.0."""
+        # 1. Verifica Whitelist
+        if symbol not in self.settings.WHITELIST_PAIRS:
+            return {"ok": False, "error": f"Simbolo {symbol} non in whitelist"}
+            
+        # 2. Verifica Stato Adapter
+        health = self.adapter.health_check()
+        if not health["ok"] or health["status"] == "unavailable":
+            return {"ok": False, "error": "Adapter Exchange non raggiungibile"}
+            
+        # 3. Verifica Balance Reale (Pre-Buy)
+        if side == "BUY":
+            summary = self.adapter.get_account_summary()
+            free_balance = summary.get("free_quote_balance", 0.0)
+            if qty > free_balance:
+                return {"ok": False, "error": f"Saldo insufficiente: richiesti {qty}, disponibili {free_balance}"}
+
+        # 4. Verifica Exchange Info (Precision e Min Notional)
+        ex_info = self.adapter.get_exchange_info(symbol)
+        if not ex_info.get("ok"):
+            return {"ok": False, "error": "Impossibile recuperare Exchange Info"}
+            
+        # Estrazione filtri Binance
+        sym_data = ex_info["payload"]["symbols"][0]
+        filters = {f["filterType"]: f for f in sym_data["filters"]}
+        
+        # Check Min Notional
+        min_notional = float(filters.get("NOTIONAL", {}).get("minNotional", 0.0))
+        if side == "BUY" and qty < min_notional:
+             return {"ok": False, "error": f"Ordine sotto Min Notional ({min_notional})"}
+             
+        # Check Lot Size / Precision
+        # Nota: Qui potremmo fare lo snap della qty, per ora validiamo solo
+        return {"ok": True}
+
     async def _execute_apex_order(self, action):
-        """Esecuzione market con protezione Paladin asincrona."""
+        """Esecuzione market con protezione deterministica Iron Core."""
         symbol = action["symbol"]
         side = action["action"]
         qty = action.get("usdt_amount") if side == "BUY" else action.get("quantity")
         
-        # Filtro polvere v11.0
-        if side == "BUY" and qty < 1.5: return
+        # 1. Pre-flight Guard (Sovereign Protection)
+        guard = self._pre_flight_check_order(symbol, side, qty)
+        if not guard["ok"]:
+            logger.warning(f"APEX ORDER BLOCKED: {guard['error']} ({symbol} {side})")
+            return
+
+        logger.info(f"APEX ORDER DISPATCH: {side} {symbol} (Qty: {qty:.4f})")
         
-        logger.info(f"APEX ORDER: {side} {symbol} (Target: {action.get('level_price')})")
-        
-        # In 2026 usiamo il client asincrono per l'invio ordini per minima latenza
         try:
             order = self.adapter.place_market_order(symbol, side, qty)
             if order.get("ok"):

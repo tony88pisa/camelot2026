@@ -34,8 +34,8 @@ class BinanceTestnetAdapter:
     ):
         settings = get_settings()
         self.base_url = (base_url or settings.BINANCE_TESTNET_BASE_URL).rstrip("/")
-        self.api_key = api_key or settings.BINANCE_TESTNET_API_KEY
-        self.api_secret = api_secret or settings.BINANCE_TESTNET_API_SECRET
+        self.api_key = api_key if api_key is not None else settings.BINANCE_TESTNET_API_KEY
+        self.api_secret = api_secret if api_secret is not None else settings.BINANCE_TESTNET_API_SECRET
         
         # Internal HTTP session per reuse connection pools
         self.session = requests.Session()
