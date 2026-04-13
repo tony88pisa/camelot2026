@@ -31,10 +31,12 @@ from ai_trader.core.ollama_client import OllamaClient
 from ai_trader.risk.risk_kernel import RiskKernel
 from ai_trader.risk.risk_state_tracker import RiskStateTracker
 from ai_trader.memory.lesson_store import LessonStore
-from ai_trader.risk.opportunity_models import OpportunityCandidate, QualityScore
+from ai_trader.risk.opportunity_models import OpportunityCandidate, QualityScore, StructuredRejectedTrade
 from ai_trader.risk.friction_brain import FrictionBrain
 from ai_trader.risk.opportunity_arbiter import OpportunityArbiter
 from ai_trader.risk.capital_allocator import CapitalAllocator
+from ai_trader.risk.portfolio_router import PortfolioRouter
+from ai_trader.risk.outcome_evaluator import OutcomeEvaluator
 
 logger = get_logger("main_reactor")
 
@@ -55,10 +57,13 @@ class ApexReactor:
         self.lesson_store = LessonStore()
         self.risk_tracker = RiskStateTracker(lesson_store=self.lesson_store)
         
-        # v12.0: Fase 6 - Economic Decision Layer
+        # v12.0: Fase 6 & 7 - Economic & Learning Layer
         self.friction_brain = FrictionBrain()
         self.arbiter = OpportunityArbiter()
         self.allocator = CapitalAllocator()
+        self.portfolio_router = PortfolioRouter()
+        self.outcome_evaluator = OutcomeEvaluator()
+        self.rejection_review_counter = 0
         
         # v11.1: Iniezione credenziali nello streamer per snapshots reali
         self.streamer = BinanceStreamer(
@@ -192,43 +197,66 @@ class ApexReactor:
         logger.info("ApexReactor: Shutdown completato.")
 
     async def process_cycle(self):
-        """Ciclo principale di analisi e reazione."""
-        whitelist = self.settings.WHITELIST_PAIRS
-        
-        # v11.0: Calcolo budget per l'intero portfolio (Interest Compounding)
-        overall = self.grid_engine.get_overall_status()
-        active_capital = self.current_live_budget + overall.get("total_profit", 0.0) # v11.4: Fix EUR naming
-        
-        for symbol in whitelist:
-            try:
-                # 1. Recupero Microstruttura L2 (Real-time)
-                order_book = self.streamer.get_order_book(symbol)
-                if not order_book:
-                    continue # Attesa sincronizzazione
+        """Ciclo principale con Learning & Routing Multi-Asset (Phase 7)."""
+        summary = self.adapter.get_account_summary()
+        active_capital = summary.get("free_quote_balance", 0.0)
+        self.risk_tracker.initialize_from_summary(summary)
 
-                # 2. Analisi Whale & OBI
-                whale_data = self.whale_watch.analyze_order_book(order_book)
-                whale_signal = self.whale_watch.get_predator_signal(order_book)
-                
-                # 3. Analisi Tecnica Snapshot
-                tech_analysis = self.analyzer.analyze(symbol)
-                if not tech_analysis.ok: continue
-                
-                # 4. Determinazione Regime di Mercato (AI GEAR-SHIFT)
-                current_regime = self.regime_shift.detect_regime(
-                    {"trend_score": tech_analysis.trend_score, 
-                     "volatility_score": tech_analysis.volatility_score,
-                     "rsi": tech_analysis.rsi},
-                    whale_signal
-                )
-                strategy_adj = self.regime_shift.get_strategy_adjustments()
+        # Portfolio Routing Loop (Fase 7)
+        all_symbol_decisions = []
+        for symbol in self.settings.WHITELIST_PAIRS:
+            decision = await self._evaluate_symbol_decision(symbol, active_capital)
+            if decision:
+                all_symbol_decisions.append(decision)
 
-                # 5. Gestione Griglia Apex
-                await self._manage_grid_apex(symbol, tech_analysis, whale_data, current_regime, active_capital)
+        routed = self.portfolio_router.route(all_symbol_decisions)
+        if routed:
+            winner = routed[0]
+            others = self.portfolio_router.identify_routed_away(all_symbol_decisions, winner)
+            for d in others:
+                self._handle_rejection(d, mode="ROUTED_AWAY")
+            await self._allocate_and_execute(winner, active_capital)
+        else:
+            for d in all_symbol_decisions:
+                self._handle_rejection(d, mode="NO_TRADE")
 
-            except Exception as e:
-                logger.error(f"Errore Ciclo Apex su {symbol}", error=str(e))
-                await asyncio.sleep(2)
+        # Review a T+60m per Counterfactual Learning
+        self._maybe_evaluate_past_rejections()
+
+    async def _evaluate_symbol_decision(self, symbol, total_cap):
+        """Valuta economicamente un singolo simbolo senza eseguire azioni."""
+        order_book = self.adapter.get_order_book(symbol)
+        if not order_book:
+            return None
+        tech = self.analyzer.analyze(symbol)
+        if not tech.ok:
+            return None
+        whale = self.whale_watch.analyze_order_book(order_book)
+        regime = self.regime_shift.detect_regime(
+            {"trend_score": tech.trend_score, "volatility_score": tech.volatility_score}, 1.0
+        )
+        tp_target = tech.recommended_tp_pct * regime.tp_multiplier
+        actions = self.grid_engine.evaluate(symbol, tech.price, min_profit_pct=tp_target)
+        if not actions:
+            return None
+
+        candidates, friction_reports = [], []
+        for action in actions:
+            if action["action"] not in ["BUY", "SELL"]:
+                continue
+            cand = OpportunityCandidate(
+                symbol=symbol, side=action["action"], entry_price=tech.price,
+                expected_edge_pct=tp_target / 100,
+                signal_strength=whale.get("signal_strength", 0.7),
+                regime=regime.name, volatility_score=tech.volatility_score,
+                source="grid_apex",
+            )
+            fric = self.friction_brain.estimate_friction(
+                symbol, order_book, action.get("usdt_amount", 15.0)
+            )
+            candidates.append(cand)
+            friction_reports.append(fric)
+        return self.arbiter.evaluate_candidates(candidates, friction_reports)
 
     async def _manage_grid_apex(self, symbol, tech, whale, regime, total_cap):
         """Gestione avanzata della griglia basata su regime e balene."""
@@ -381,6 +409,66 @@ class ApexReactor:
 
         result["ok"] = True
         return result
+
+    async def _allocate_and_execute(self, arb_decision, balance):
+        """Esegue l'allocazione e l'ordine finale."""
+        allocation = self.allocator.allocate(arb_decision, balance)
+        if allocation.action != "NO_TRADE":
+            action = {
+                "symbol": arb_decision.candidate.symbol,
+                "action": allocation.action,
+                "usdt_amount": allocation.allocated_notional,
+            }
+            await self._execute_apex_order(action)
+        else:
+            self._handle_rejection(arb_decision, mode="LOW_ALLOCATION")
+
+    def _handle_rejection(self, decision, mode="NO_TRADE"):
+        """Gestisce il rifiuto di un'opportunita e lo logga in EpisodeStore."""
+        if not decision.candidate:
+            return
+        self.risk_tracker.emit_counterfactual_lesson(None, decision)
+        import time
+        record = {
+            "symbol": decision.candidate.symbol,
+            "side": decision.candidate.side,
+            "timestamp": time.time(),
+            "entry_price": decision.candidate.entry_price,
+            "expected_edge_pct": decision.candidate.expected_edge_pct,
+            "friction_total_pct": decision.friction.total_friction_pct if decision.friction else 0.0,
+            "rejection_reason": decision.reason_codes[0] if decision.reason_codes else "unknown",
+            "threshold_used": self.arbiter.min_net_edge_required,
+            "rejection_mode": mode,
+        }
+        self.episode_store.append_episode("trading", "rejected_opportunity", record)
+
+    def _maybe_evaluate_past_rejections(self):
+        """Valuta gli esiti delle reiezioni a T+60m per l'apprendimento."""
+        self.rejection_review_counter += 1
+        if self.rejection_review_counter < 5:
+            return
+        self.rejection_review_counter = 0
+        import time
+        episodes = self.episode_store.load_episodes("trading", limit=20)
+        pending = [e for e in episodes if e.get("kind") == "rejected_opportunity"]
+        now = time.time()
+        for ep in pending:
+            payload = ep.get("payload", {})
+            age = now - payload.get("timestamp", 0)
+            if 3600 <= age <= 7200:
+                symbol = payload.get("symbol")
+                ticker = self.adapter.get_ticker_price(symbol)
+                current_price = ticker.get("price", 0.0)
+                if current_price > 0:
+                    outcome = self.outcome_evaluator.evaluate_rejection(
+                        StructuredRejectedTrade(**payload), current_price, now
+                    )
+                    self.lesson_store.append_lesson(
+                        category="trading",
+                        title=f"OUTCOME: {symbol} REJECTION REVIEW",
+                        content=f"Rejection was {'CORRECT' if outcome.is_correct_rejection else 'TOO_CONSERVATIVE'}. "
+                                f"Hypo Net: {outcome.hypothetical_net_return_pct:.4f}",
+                    )
 
     async def _execute_apex_order(self, action):
         """Esecuzione market con protezione deterministica Iron Core v12.0 e Risk Kernel."""

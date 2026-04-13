@@ -53,3 +53,40 @@ class AllocationDecision:
     allocated_notional: float = 0.0
     reserve_preserved: float = 0.0
     reason: Optional[str] = None
+
+@dataclass
+class StructuredRejectedTrade:
+    """Record strutturato di un'opportunità scartata per EpisodeStore."""
+    symbol: str
+    side: str
+    timestamp: float
+    entry_price: float
+    expected_edge_pct: float
+    friction_total_pct: float
+    rejection_reason: str
+    quality: str
+    signal_strength: float
+    regime: str
+    threshold_used: float
+    rejection_mode: str = "NO_TRADE"
+
+@dataclass
+class CounterfactualOutcome:
+    """Esito misurato di una decisione di rifiuto per LessonStore."""
+    symbol: str
+    occurred_at: float
+    evaluated_at: float
+    entry_price: float
+    exit_price_60m: float
+    hypothetical_move_pct: float
+    hypothetical_net_return_pct: float
+    is_correct_rejection: bool
+    rejection_mode: str
+
+@dataclass
+class RoutingDecision:
+    """Snapshot di una decisione di portfolio routing."""
+    timestamp: float
+    winner: Optional[ArbiterDecision] = None
+    all_candidates: List[ArbiterDecision] = field(default_factory=list)
+    reason: str = ""
