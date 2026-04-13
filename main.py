@@ -183,67 +183,125 @@ class ApexReactor:
         for action in actions:
             await self._execute_apex_order(action)
 
-    def _pre_flight_check_order(self, symbol, side, qty):
-        """Validazione deterministica pre-esecuzione v12.0."""
+    def _pre_flight_check_order(self, symbol, side, qty, price=0.0):
+        """
+        Validazione deterministica e normalizzazione pre-esecuzione v12.0.
+        Restituisce un payload con i valori snappati pronti per l'invio.
+        """
+        result = {
+            "ok": False,
+            "normalized_qty": 0.0,
+            "normalized_price": 0.0,
+            "error": None,
+            "filters": {}
+        }
+
         # 1. Verifica Whitelist
         if symbol not in self.settings.WHITELIST_PAIRS:
-            return {"ok": False, "error": f"Simbolo {symbol} non in whitelist"}
+            result["error"] = f"Simbolo {symbol} non in whitelist"
+            return result
             
         # 2. Verifica Stato Adapter
         health = self.adapter.health_check()
         if not health["ok"] or health["status"] == "unavailable":
-            return {"ok": False, "error": "Adapter Exchange non raggiungibile"}
+            result["error"] = "Adapter Exchange non raggiungibile"
+            return result
             
-        # 3. Verifica Balance Reale (Pre-Buy)
-        if side == "BUY":
-            summary = self.adapter.get_account_summary()
-            free_balance = summary.get("free_quote_balance", 0.0)
-            if qty > free_balance:
-                return {"ok": False, "error": f"Saldo insufficiente: richiesti {qty}, disponibili {free_balance}"}
+        # 3. Recupero Regole e Snapping
+        rules = self.adapter.get_symbol_rules(symbol)
+        if not rules:
+            result["error"] = f"Impossibile recuperare regole per {symbol}"
+            return result
+        result["filters"] = rules
 
-        # 4. Verifica Exchange Info (Precision e Min Notional)
-        ex_info = self.adapter.get_exchange_info(symbol)
-        if not ex_info.get("ok"):
-            return {"ok": False, "error": "Impossibile recuperare Exchange Info"}
+        # Se BUY via quoteOrderQty, normalizziamo il notional. Se SELL, normalizziamo la base qty.
+        if side == "BUY":
+            # Per i BUY in questo bot usiamo quoteOrderQty (USDT)
+            # Snappiamo il prezzo se fornito (per limit) o usiamo ticker per check notional
+            current_price = price if price > 0 else self.adapter.get_ticker_price(symbol).get("price", 0.0)
             
-        # Estrazione filtri Binance
-        sym_data = ex_info["payload"]["symbols"][0]
-        filters = {f["filterType"]: f for f in sym_data["filters"]}
-        
-        # Check Min Notional
-        min_notional = float(filters.get("NOTIONAL", {}).get("minNotional", 0.0))
-        if side == "BUY" and qty < min_notional:
-             return {"ok": False, "error": f"Ordine sotto Min Notional ({min_notional})"}
-             
-        # Check Lot Size / Precision
-        # Nota: Qui potremmo fare lo snap della qty, per ora validiamo solo
-        return {"ok": True}
+            # Normalizziamo la quote (notional) - non c' regola rigida su quote precision 
+            # se non i decimali standard (2 per USDT).
+            norm_qty = round(qty, 2) 
+            
+            # Check Min Notional
+            if norm_qty < rules["minNotional"]:
+                result["error"] = f"Ordine BUY sotto Min Notional: {norm_qty} < {rules['minNotional']}"
+                return result
+                
+            result["normalized_qty"] = norm_qty
+        else:
+            # SELL: Snap della base quantity
+            norm_qty = self.adapter.snap_quantity(symbol, qty)
+            
+            # Check Lot Size
+            if norm_qty < rules["minQty"]:
+                result["error"] = f"Quantit SELL post-snap inferiore a minQty: {norm_qty} < {rules['minQty']}"
+                return result
+            
+            # Check Notional post-snap
+            current_price = self.adapter.get_ticker_price(symbol).get("price", 0.0)
+            notional = norm_qty * current_price
+            if notional < rules["minNotional"]:
+                result["error"] = f"Ordine SELL post-snap sotto Min Notional: {notional:.2f} < {rules['minNotional']}"
+                return result
+                
+            result["normalized_qty"] = norm_qty
+
+        # 4. Verifica Balance Reale Finale
+        summary = self.adapter.get_account_summary()
+        if side == "BUY":
+            free_balance = summary.get("free_quote_balance", 0.0)
+            if result["normalized_qty"] > free_balance:
+                result["error"] = f"Saldo insufficiente: richiesti {result['normalized_qty']}, disponibili {free_balance}"
+                return result
+        else:
+            # Per i SELL dovremmo verificare l'asset di base, ma l'adapter attuale 
+            # espone principalmente quote balance. Placeholder per futura espansione balance_check.
+            pass
+
+        result["ok"] = True
+        return result
 
     async def _execute_apex_order(self, action):
-        """Esecuzione market con protezione deterministica Iron Core."""
+        """Esecuzione market con protezione deterministica Iron Core v12.0."""
         symbol = action["symbol"]
         side = action["action"]
-        qty = action.get("usdt_amount") if side == "BUY" else action.get("quantity")
+        raw_qty = action.get("usdt_amount") if side == "BUY" else action.get("quantity")
         
-        # 1. Pre-flight Guard (Sovereign Protection)
-        guard = self._pre_flight_check_order(symbol, side, qty)
+        # 1. Pre-flight Normalizzatore (Sovereign Protection)
+        guard = self._pre_flight_check_order(symbol, side, raw_qty)
         if not guard["ok"]:
             logger.warning(f"APEX ORDER BLOCKED: {guard['error']} ({symbol} {side})")
             return
 
-        logger.info(f"APEX ORDER DISPATCH: {side} {symbol} (Qty: {qty:.4f})")
+        # UTILIZZO VALORI NORMALIZZATI
+        exec_qty = guard["normalized_qty"]
+        logger.info(f"APEX ORDER DISPATCH: {side} {symbol} (Normalized Qty: {exec_qty})")
         
         try:
-            order = self.adapter.place_market_order(symbol, side, qty)
+            # Invio all'adapter
+            order = self.adapter.place_market_order(symbol, side, exec_qty)
+            
+            # 2. Riconciliazione Finale (Fase 1 Hardening)
             if order.get("ok"):
-                if side == "BUY":
-                    self.grid_engine.record_buy(symbol, action["level_index"], order["avg_price"], order["executed_qty"])
+                # Validazione Fill Reali
+                executed_qty = float(order.get("executed_qty", 0.0))
+                avg_price = float(order.get("avg_price", 0.0))
+                
+                if executed_qty > 0 and avg_price > 0:
+                    if side == "BUY":
+                        self.grid_engine.record_buy(symbol, action["level_index"], avg_price, executed_qty)
+                    else:
+                        self.grid_engine.record_sell(symbol, action["level_index"], avg_price, executed_qty)
+                    logger.info(f"APEX ORDER SUCCESS: {symbol} {side} Filled: {executed_qty} @ {avg_price}")
                 else:
-                    self.grid_engine.record_sell(symbol, action["level_index"], order["avg_price"], order["executed_qty"])
+                    logger.error(f"APEX RECONCILIATION FAILURE: {symbol} Ordine OK ma fill nullo. Status: {order.get('status')}")
             else:
-                logger.error(f"Apex Execution Fallita {symbol}: {order.get('error')}")
+                logger.error(f"APEX EXECUTION REJECTED: {symbol} Error: {order.get('error')}")
+                
         except Exception as e:
-            logger.error(f"Apex Crash Order {symbol}", error=str(e))
+            logger.error(f"APEX CRITICAL CRASH: Order {symbol}", error=str(e))
 
     async def run(self):
         """Reattore principale."""

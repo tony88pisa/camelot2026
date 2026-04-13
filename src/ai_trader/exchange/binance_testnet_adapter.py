@@ -159,6 +159,108 @@ class BinanceTestnetAdapter:
             "error": None
         }
 
+    def get_symbol_rules(self, symbol: str) -> dict:
+        """
+        Estrae i filtri deterministici per un simbolo specifico.
+        # 2026-04-13 - Fase 1 Hardening
+        """
+        norm_symbol = self._normalize_symbol(symbol)
+        info = self.get_exchange_info(norm_symbol)
+        if not info["ok"] or not info.get("payload", {}).get("symbols"):
+            return {}
+            
+        sym_data = info["payload"]["symbols"][0]
+        filters = {f["filterType"]: f for f in sym_data["filters"]}
+        
+        # Estrazione granulare
+        lot_size = filters.get("LOT_SIZE", {})
+        price_filter = filters.get("PRICE_FILTER", {})
+        notional = filters.get("NOTIONAL", {})
+        
+        return {
+            "stepSize": float(lot_size.get("stepSize", 0.0)),
+            "minQty": float(lot_size.get("minQty", 0.0)),
+            "maxQty": float(lot_size.get("maxQty", 0.0)),
+            "tickSize": float(price_filter.get("tickSize", 0.0)),
+            "minNotional": float(notional.get("minNotional", 1.0)) # Binance standard fallback
+        }
+
+    def snap_quantity(self, symbol: str, quantity: float) -> float:
+        """Normalizza la quantit in base allo stepSize del simbolo (Floor strategy)."""
+        import math
+        rules = self.get_symbol_rules(symbol)
+        step_size = rules.get("stepSize", 0.0)
+        if step_size <= 0:
+            return quantity
+            
+        precision = int(round(-math.log10(step_size), 0))
+        # Utilizziamo floor per evitare di superare saldo o limiti per arrotondamento eccessivo
+        factor = 10 ** precision
+        return math.floor(quantity * factor) / factor
+
+    def snap_price(self, symbol: str, price: float) -> float:
+        """Normalizza il prezzo in base al tickSize del simbolo."""
+        import math
+        rules = self.get_symbol_rules(symbol)
+        tick_size = rules.get("tickSize", 0.0)
+        if tick_size <= 0:
+            return price
+            
+        precision = int(round(-math.log10(tick_size), 0))
+        factor = 10 ** precision
+        return math.floor(price * factor) / factor
+
+    def get_symbol_rules(self, symbol: str) -> dict:
+        """
+        Estrae i filtri deterministici per un simbolo specifico.
+        # 2026-04-13 - Fase 1 Hardening
+        """
+        norm_symbol = self._normalize_symbol(symbol)
+        info = self.get_exchange_info(norm_symbol)
+        if not info["ok"] or not info.get("payload", {}).get("symbols"):
+            return {}
+            
+        sym_data = info["payload"]["symbols"][0]
+        filters = {f["filterType"]: f for f in sym_data["filters"]}
+        
+        # Estrazione granulare
+        lot_size = filters.get("LOT_SIZE", {})
+        price_filter = filters.get("PRICE_FILTER", {})
+        notional = filters.get("NOTIONAL", {})
+        
+        return {
+            "stepSize": float(lot_size.get("stepSize", 0.0)),
+            "minQty": float(lot_size.get("minQty", 0.0)),
+            "maxQty": float(lot_size.get("maxQty", 0.0)),
+            "tickSize": float(price_filter.get("tickSize", 0.0)),
+            "minNotional": float(notional.get("minNotional", 1.0)) # Binance standard fallback
+        }
+
+    def snap_quantity(self, symbol: str, quantity: float) -> float:
+        """Normalizza la quantit in base allo stepSize del simbolo (Floor strategy)."""
+        import math
+        rules = self.get_symbol_rules(symbol)
+        step_size = rules.get("stepSize", 0.0)
+        if step_size <= 0:
+            return quantity
+            
+        precision = int(round(-math.log10(step_size), 0))
+        # Utilizziamo floor per evitare di superare saldo o limiti per arrotondamento eccessivo
+        factor = 10 ** precision
+        return math.floor(quantity * factor) / factor
+
+    def snap_price(self, symbol: str, price: float) -> float:
+        """Normalizza il prezzo in base al tickSize del simbolo."""
+        import math
+        rules = self.get_symbol_rules(symbol)
+        tick_size = rules.get("tickSize", 0.0)
+        if tick_size <= 0:
+            return price
+            
+        precision = int(round(-math.log10(tick_size), 0))
+        factor = 10 ** precision
+        return math.floor(price * factor) / factor
+
     def get_ticker_price(self, symbol: str) -> dict:
         """
         Endpoint Pubblico: Fetching prezzo istantaneo (Symbol Price Ticker).
