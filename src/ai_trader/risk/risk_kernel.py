@@ -51,7 +51,11 @@ class RiskKernel:
         if system.consecutive_errors >= self.policy.max_consecutive_errors:
             reasons.append(ReasonCode.TOO_MANY_CONSECUTIVE_ERRORS.value)
 
-        # 6. Esposizione Totale Portafoglio
+        # 6. Open Positions Count
+        if portfolio.open_positions_count >= self.policy.max_open_trades:
+            reasons.append(ReasonCode.TOO_MANY_OPEN_TRADES.value)
+
+        # 7. Esposizione Totale Portafoglio
         # Calcoliamo l'impatto del nuovo trade
         new_total_exposure = portfolio.current_total_exposure + intent.proposed_notional
         max_total_notional = portfolio.wallet_value * self.policy.max_total_exposure_pct

@@ -37,6 +37,7 @@ from ai_trader.risk.opportunity_arbiter import OpportunityArbiter
 from ai_trader.risk.capital_allocator import CapitalAllocator
 from ai_trader.risk.portfolio_router import PortfolioRouter
 from ai_trader.risk.outcome_evaluator import OutcomeEvaluator
+from ai_trader.risk.night_session import NightSession, NightSessionConfig
 
 logger = get_logger("main_reactor")
 
@@ -64,6 +65,7 @@ class ApexReactor:
         self.portfolio_router = PortfolioRouter()
         self.outcome_evaluator = OutcomeEvaluator()
         self.rejection_review_counter = 0
+        self.night_session = None  # Initialized in run() if overnight mode
         
         # v11.1: Iniezione credenziali nello streamer per snapshots reali
         self.streamer = BinanceStreamer(
@@ -198,6 +200,11 @@ class ApexReactor:
 
     async def process_cycle(self):
         """Ciclo principale con Learning & Routing Multi-Asset (Phase 7)."""
+        # Night Session hard stop check
+        if self.night_session and self.night_session.is_halted:
+            logger.warning(f"NightSession HALTED: {self.night_session.halt_reason}. Skipping cycle.")
+            return
+
         summary = self.adapter.get_account_summary()
         active_capital = summary.get("free_quote_balance", 0.0)
         self.risk_tracker.initialize_from_summary(summary)
@@ -414,12 +421,29 @@ class ApexReactor:
         """Esegue l'allocazione e l'ordine finale."""
         allocation = self.allocator.allocate(arb_decision, balance)
         if allocation.action != "NO_TRADE":
+            symbol = arb_decision.candidate.symbol
+            notional = allocation.allocated_notional
+            sig_quality = arb_decision.candidate.signal_strength
+
+            # Night Session gate
+            if self.night_session:
+                allowed, reason = self.night_session.check_trade_allowed(symbol, notional, sig_quality)
+                if not allowed:
+                    logger.info(f"NightSession BLOCKED trade: {reason}")
+                    self.night_session.record_rejection(symbol, reason)
+                    self._handle_rejection(arb_decision, mode=f"NIGHT_BLOCK:{reason}")
+                    return
+
             action = {
-                "symbol": arb_decision.candidate.symbol,
+                "symbol": symbol,
                 "action": allocation.action,
-                "usdt_amount": allocation.allocated_notional,
+                "usdt_amount": notional,
             }
             await self._execute_apex_order(action)
+
+            # Night Session tracking
+            if self.night_session:
+                self.night_session.record_trade_executed(symbol, allocation.action, notional)
         else:
             self._handle_rejection(arb_decision, mode="LOW_ALLOCATION")
 
@@ -550,33 +574,46 @@ class ApexReactor:
             logger.error(f"APEX CRITICAL CRASH: Order {symbol}", error=str(e))
 
     async def run(self):
-        """Reattore principale."""
-        # v11.2: Hardcoding forzato whitelist per stabilita assoluta
-        self.settings.WHITELIST_PAIRS = ["SOLEUR", "BTCEUR"]
-        logger.info(f"v11.2 Tabula Rasa: Whitelist HARDCODED: {self.settings.WHITELIST_PAIRS}")
-        
+        """Reattore principale con NightSession safety wrapper."""
+        # v12.5: NightSession override for overnight mode
+        night_config = NightSessionConfig()
+        self.night_session = NightSession(config=night_config)
+        self.settings.WHITELIST_PAIRS = night_config.allowed_symbols
+        logger.info(f"v12.5 NightSession: Whitelist={self.settings.WHITELIST_PAIRS}, MaxTrades={night_config.max_session_trades}, MaxLoss={night_config.max_session_loss_usd}")
+
         await self.boot_sequence()
-        
+
         cycle_count = 0
         while self.running:
+            # Night Session hard stop -> generate report and exit
+            if self.night_session.is_halted:
+                logger.warning(f"NightSession HALT detected: {self.night_session.halt_reason}. Generating morning report.")
+                report = self.night_session.generate_morning_report()
+                print(f"\n=== MORNING REPORT ===")
+                print(f"Trades: {report['trades_executed']} | PnL: {report['session_pnl']:.4f} | Halt: {report['halt_reason']}")
+                break
+
             cycle_count += 1
             print(f"\n[APEX CYCLE #{cycle_count}] --- {datetime.now().strftime('%H:%M:%S')}")
-            
+
             # 1. Check Salute Paladin (v11.0 priority)
             health = self.paladin.check_portfolio_health()
             print(f"I  Paladin: Status={health['status']} | Equity={health.get('equity', 0):.2f} | DD={health.get('drawdown', 0):.2f}%")
-            
+
             # 2. Processo strategico
             await self.process_cycle()
-            
-            # 3. AI Heartbeat & Dream (Ogni 10 cicli)
+
+            # 3. AI Heartbeat (Ogni 10 cicli)
             if cycle_count % 10 == 0:
                 print("[HEARTBEAT] Mantengo Titan Brain caldo in VRAM...")
-                # Una piccola chat per impedire ad Ollama di scaricare il modello
                 self.ollama.chat([{"role": "user", "content": "keepalive"}], max_tokens=1)
-                print("[DREAM] Avvio Riflessione MAD v11.0...")
-            
+
             await asyncio.sleep(self.interval)
+
+        # Clean shutdown: always generate morning report
+        if self.night_session:
+            self.night_session.generate_morning_report()
+        await self.shutdown_sequence()
 
 async def main_async():
     parser = argparse.ArgumentParser()
