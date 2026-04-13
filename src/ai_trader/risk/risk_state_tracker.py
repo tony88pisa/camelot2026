@@ -91,6 +91,48 @@ Cooldown fino a: {self.system_cooldown_until}
             tags=["risk_kernel", incident_type, severity]
         )
 
+    def emit_counterfactual_lesson(self, decision: Any, arbiter_decision: Any):
+        """
+        Registra un'opportunit scartata (Counterfactual) per analisi futura.
+        # Phase 6 Requirement
+        """
+        if not self.lesson_store or not arbiter_decision.candidate:
+            return
+
+        cand = arbiter_decision.candidate
+        fric = arbiter_decision.friction
+        
+        counterfactual_data = {
+            "version": "1.1",
+            "event": "COUNTERFACTUAL_REJECTION",
+            "symbol": cand.symbol,
+            "side": cand.side,
+            "gross_edge_pct": cand.expected_edge_pct,
+            "net_edge_pct": arbiter_decision.net_edge_pct,
+            "friction_total_pct": fric.total_friction_pct if fric else 0.0,
+            "rejection_reasons": arbiter_decision.reason_codes,
+            "quality": arbiter_decision.quality.value,
+            "signal_strength": cand.signal_strength,
+            "occurred_at": time.time()
+        }
+
+        content = f"""## counterfactual_payload
+```json
+{json.dumps(counterfactual_data, indent=2)}
+```
+
+### Rationale
+Opportunita scartata su {cand.symbol} ({cand.side}).
+Edge Netto: {arbiter_decision.net_edge_pct:.4f}
+Motivi: {arbiter_decision.reason_codes}
+"""
+        self.lesson_store.append_lesson(
+            category="trading",
+            title=f"COUNTERFACTUAL: {cand.symbol} {cand.side} rejected",
+            content=content,
+            tags=["counterfactual", "rejection", cand.symbol]
+        )
+
     def restore_recent_incident_state(self, lookback_seconds: int = 14400):
         """Ripristina lo stato (cooldown/errori) analizzando le ultime lezioni persistenti."""
         if not self.lesson_store:

@@ -31,6 +31,10 @@ from ai_trader.core.ollama_client import OllamaClient
 from ai_trader.risk.risk_kernel import RiskKernel
 from ai_trader.risk.risk_state_tracker import RiskStateTracker
 from ai_trader.memory.lesson_store import LessonStore
+from ai_trader.risk.opportunity_models import OpportunityCandidate, QualityScore
+from ai_trader.risk.friction_brain import FrictionBrain
+from ai_trader.risk.opportunity_arbiter import OpportunityArbiter
+from ai_trader.risk.capital_allocator import CapitalAllocator
 
 logger = get_logger("main_reactor")
 
@@ -48,8 +52,13 @@ class ApexReactor:
         
         # Inizializzazione Sottosistemi
         self.adapter = BinanceAdapter(mode=self.mode) 
-        self.lesson_store = LessonStore() # v12.0: Bridge Persistenza Neurale
+        self.lesson_store = LessonStore()
         self.risk_tracker = RiskStateTracker(lesson_store=self.lesson_store)
+        
+        # v12.0: Fase 6 - Economic Decision Layer
+        self.friction_brain = FrictionBrain()
+        self.arbiter = OpportunityArbiter()
+        self.allocator = CapitalAllocator()
         
         # v11.1: Iniezione credenziali nello streamer per snapshots reali
         self.streamer = BinanceStreamer(
@@ -243,13 +252,62 @@ class ApexReactor:
             )
             self.grid_engine.setup_grid(grid_config)
 
-        # Valutazione con TP Dinamico Apex
-        current_price = tech.price
-        tp_target = tech.recommended_tp_pct * regime.tp_multiplier
+        # 5. Arbitraggio Economico v12.0 (Phase 6)
+        # Convertiamo le azioni in candidati per l'Arbiter
+        candidates = []
+        friction_reports = []
         
-        actions = self.grid_engine.evaluate(symbol, current_price, min_profit_pct=tp_target)
+        # Recuperiamo Order Book fresco per Friction Brain
+        order_book = self.adapter.get_order_book(symbol)
+        
         for action in actions:
-            await self._execute_apex_order(action)
+            if action["action"] not in ["BUY", "SELL"]: continue
+            
+            # Stima Edge: Per la griglia, l'edge atteso  il TP target PCT
+            expected_edge = tp_target / 100.0
+            
+            cand = OpportunityCandidate(
+                symbol=symbol,
+                side=action["action"],
+                entry_price=current_price,
+                expected_edge_pct=expected_edge,
+                signal_strength=whale.get("signal_strength", 0.7), # Default 0.7 se no whale
+                regime=regime.name,
+                volatility_score=tech.volatility_score,
+                source="grid_apex"
+            )
+            
+            # Calcolo Friction
+            fric = self.friction_brain.estimate_friction(symbol, order_book, action.get("usdt_amount", 15.0))
+            
+            candidates.append(cand)
+            friction_reports.append(fric)
+
+        # 6. Selezione e Allocazione
+        arb_decision = self.arbiter.evaluate_candidates(candidates, friction_reports)
+        
+        if arb_decision.allowed:
+            # Recuperiamo saldo reale per l'allocatore
+            summary = self.adapter.get_account_summary()
+            balance = summary.get("free_quote_balance", 0.0)
+            
+            allocation = self.allocator.allocate(arb_decision, balance)
+            
+            if allocation.action != "NO_TRADE":
+                # Aggiorniamo l'azione originale con il nuovo notional allocato
+                # Per ora semplifichiamo: prendiamo la prima azione approvata
+                final_action = next(a for a in actions if a["action"] == allocation.action)
+                final_action["usdt_amount"] = allocation.allocated_notional
+                
+                logger.info(f"ECONOMIC APPROVAL: {symbol} {allocation.action} Q:{arb_decision.quality.value} NetEdge:{arb_decision.net_edge_pct:.4f} Alloc:{allocation.allocated_notional:.2f}")
+                await self._execute_apex_order(final_action)
+            else:
+                logger.warning(f"ALLOCATION REJECTED: {symbol} Reason: {allocation.reason}")
+        else:
+            # Registrazione Counterfactual Memory per i rifiuti dell'Arbiter
+            if arb_decision.candidate:
+                self.risk_tracker.emit_counterfactual_lesson(None, arb_decision)
+                logger.info(f"ECONOMIC REJECTION: {symbol} Quality:{arb_decision.quality.value} Reason:{arb_decision.reason_codes}")
 
     def _pre_flight_check_order(self, symbol, side, qty, price=0.0):
         """
