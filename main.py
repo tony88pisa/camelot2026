@@ -83,8 +83,9 @@ class ApexReactor:
         self.whale_watch = WhaleWatchAgent()
         self.regime_shift = RegimeShiftAgent()
         
-        # v11.3: Titan Brain Configuration
+        # v11.3: Titan Brain Configuration (Optional - deterministic mode if unavailable)
         self.ollama = OllamaClient()
+        self.ollama_available = False
         
         # v11.4: Creazione Context Professionale per il Brain
         ctx = BrainContext(
@@ -184,12 +185,16 @@ class ApexReactor:
         # 6. Capital Discipline (v12.0)
         self.current_live_budget = self._apply_capital_discipline(self.current_live_budget)
 
-        # 7. Neural Heat-Up (v11.3 Titan Brain)
-        logger.info(f"Titan Brain: Risveglio neurale su GPU (Modello: {self.ollama.model})...")
-        if self.ollama.health_check():
-            self.ollama.chat([{"role": "user", "content": "wake up"}], max_tokens=5)
-        else:
-            logger.warning("Titan Brain: Ollama non risponde.")
+        # 7. Neural Heat-Up (v11.3 Titan Brain - Optional)
+        try:
+            if self.ollama.health_check():
+                self.ollama.chat([{"role": "user", "content": "wake up"}], max_tokens=5)
+                self.ollama_available = True
+                logger.info(f"Titan Brain ONLINE: {self.ollama.model}")
+            else:
+                logger.warning("Ollama unavailable — deterministic mode active")
+        except Exception as e:
+            logger.warning(f"Ollama init failed: {e} — deterministic mode active")
             
         self.running = True
         logger.info("ApexReactor: Sequenza di Avvio Completata con Successo.")
@@ -586,6 +591,7 @@ class ApexReactor:
         await self.boot_sequence()
 
         cycle_count = 0
+        cycle_failures = 0
         while self.running:
             # Night Session hard stop -> generate report and exit
             if self.night_session.is_halted:
@@ -599,16 +605,31 @@ class ApexReactor:
             print(f"\n[APEX CYCLE #{cycle_count}] --- {datetime.now().strftime('%H:%M:%S')}")
 
             # 1. Check Salute Paladin (v11.0 priority)
-            health = self.paladin.check_portfolio_health()
-            print(f"I  Paladin: Status={health['status']} | Equity={health.get('equity', 0):.2f} | DD={health.get('drawdown', 0):.2f}%")
+            try:
+                health = self.paladin.check_portfolio_health()
+                print(f"I  Paladin: Status={health['status']} | Equity={health.get('equity', 0):.2f} | DD={health.get('drawdown', 0):.2f}%")
+            except Exception as e:
+                print(f"I  Paladin: Error={e}")
 
-            # 2. Processo strategico
-            await self.process_cycle()
+            # 2. Processo strategico (protected)
+            try:
+                await self.process_cycle()
+                cycle_failures = 0  # reset on success
+            except Exception as e:
+                cycle_failures += 1
+                logger.error(f"process_cycle CRASH #{cycle_failures}: {e}", error=str(e), trace=traceback.format_exc())
+                print(f"[ERROR] Cycle #{cycle_count} failed ({cycle_failures}/3): {e}")
+                if cycle_failures >= 3:
+                    logger.error("3 consecutive cycle failures — halting session")
+                    self.night_session._halt("CONSECUTIVE_CYCLE_FAILURES")
+                    continue
 
-            # 3. AI Heartbeat (Ogni 10 cicli)
-            if cycle_count % 10 == 0:
-                print("[HEARTBEAT] Mantengo Titan Brain caldo in VRAM...")
-                self.ollama.chat([{"role": "user", "content": "keepalive"}], max_tokens=1)
+            # 3. AI Heartbeat (Ogni 10 cicli, solo se Ollama disponibile)
+            if self.ollama_available and cycle_count % 10 == 0:
+                try:
+                    self.ollama.chat([{"role": "user", "content": "keepalive"}], max_tokens=1)
+                except Exception:
+                    pass
 
             await asyncio.sleep(self.interval)
 

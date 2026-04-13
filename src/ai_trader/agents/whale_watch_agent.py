@@ -39,27 +39,29 @@ class WhaleWatchAgent:
 
         # 1. Calcolo OBI (Order Book Imbalance) sui primi 10 livelli
         # Obiettivi 2026: Ponderazione sulla distanza dal prezzo medio
-        bid_vol = sum(q for p, q in bids[:10])
-        ask_vol = sum(q for p, q in asks[:10])
+        bid_vol = sum(float(q) for p, q in bids[:10])
+        ask_vol = sum(float(q) for p, q in asks[:10])
         
         obi = (bid_vol - ask_vol) / (bid_vol + ask_vol) if (bid_vol + ask_vol) > 0 else 0.0
 
         # 2. Wall Detection (Muri di balene)
         # Calcoliamo il volume medio dei primi 20 livelli come baseline
-        avg_bid_vol = sum(q for p, q in bids) / len(bids) if bids else 1.0
-        avg_ask_vol = sum(q for p, q in asks) / len(asks) if asks else 1.0
+        avg_bid_vol = sum(float(q) for p, q in bids) / len(bids) if bids else 1.0
+        avg_ask_vol = sum(float(q) for p, q in asks) / len(asks) if asks else 1.0
 
         walls = []
         
         # Cerca muri nei Bids (Supporto potenziale Balene)
         for p, q in bids:
-            if q > avg_bid_vol * self.wall_multiplier:
-                walls.append({"side": "BUY_WALL", "price": p, "qty": q, "strength": round(q / avg_bid_vol, 1)})
+            q_float = float(q)
+            if q_float > avg_bid_vol * self.wall_multiplier:
+                walls.append({"side": "BUY_WALL", "price": float(p), "qty": q_float, "strength": round(q_float / avg_bid_vol, 1)})
         
         # Cerca muri negli Asks (Resistenza potenziale Balene)
         for p, q in asks:
-            if q > avg_ask_vol * self.wall_multiplier:
-                walls.append({"side": "SELL_WALL", "price": p, "qty": q, "strength": round(q / avg_ask_vol, 1)})
+            q_float = float(q)
+            if q_float > avg_ask_vol * self.wall_multiplier:
+                walls.append({"side": "SELL_WALL", "price": float(p), "qty": q_float, "strength": round(q_float / avg_ask_vol, 1)})
 
         # 3. Interpretazione Strategica Apex Predator
         status = "neutral"
