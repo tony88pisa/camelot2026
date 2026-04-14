@@ -7,8 +7,9 @@ from ai_trader.risk.opportunity_models import OpportunityCandidate, ArbiterDecis
 class OpportunityArbiter:
     """Decisore che classifica le opportunit e seleziona le migliori al netto dei costi."""
     
-    def __init__(self, min_net_edge_required: float = 0.002):
-        # Minimo edge netto richiesto (0.2%) dopo tutti i costi e buffer
+    def __init__(self, min_net_edge_required: float = 0.001):
+        # v12.1: Soglia ridotta a 0.1% per small accounts (era 0.2%)
+        # Con 123€ equity e fee Binance standard, 0.2% è irraggiungibile
         self.min_net_edge_required = min_net_edge_required
 
     def evaluate_candidates(self, candidates: List[OpportunityCandidate], friction_reports: List[FrictionReport]) -> ArbiterDecision:
