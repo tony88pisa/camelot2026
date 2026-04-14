@@ -94,6 +94,9 @@ class BinanceStreamer:
 
     async def _process_depth_event(self, symbol: str, event: dict):
         """Processa l'evento diffDepth e lo applica al libro locale."""
+        if 'U' not in event or 'u' not in event:
+            return # Salta payload di sistema o risposte di sottoscrizione
+            
         book = self.order_books[symbol]
         
         # Se non siamo ancora sincronizzati, buffera l'evento e chiedi lo snapshot
