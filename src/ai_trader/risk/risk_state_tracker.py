@@ -48,7 +48,8 @@ class RiskStateTracker:
 
     def initialize_from_summary(self, summary: dict):
         """Sincronizzazione iniziale dall'account summary reale."""
-        self.session_start_balance = summary.get("total_balance", 0.0)
+        # v12.1: Fix key alignment con BinanceAdapter ("total_wallet_value", non "total_balance")
+        self.session_start_balance = summary.get("total_wallet_value", summary.get("total_balance", 0.0))
         self.current_wallet_value = self.session_start_balance
         self.current_total_exposure = summary.get("total_exposure", 0.0)
         self.per_symbol_exposure = {} 

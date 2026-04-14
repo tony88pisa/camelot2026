@@ -42,7 +42,10 @@ class RiskPolicy:
     require_adapter_health: bool = True
     
     # Tolerances & Thresholds (Can be optimized via self-training loop)
-    whitelist_pairs: list[str] = field(default_factory=lambda: ["DOGEUSDT", "XRPUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT"])
+    whitelist_pairs: list[str] = field(default_factory=lambda: [
+        "PEPEUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT",
+        "DOGEUSDT", "XRPUSDT", "ADAUSDT", "LINKUSDT", "AVAXUSDT"
+    ])
     max_open_trades: int = 5
     max_total_exposure_pct: float = 0.60  # 60%  budget piccolo richiede pi esposizione
     max_single_position_pct: float = 0.35 # 35%  con 55 USDT, 10% = solo $5.5 (troppo poco)

@@ -528,7 +528,8 @@ class ApexReactor:
         from ai_trader.risk.policy_models import TradeIntent, PortfolioState, SystemState
         import time
 
-        risk_kernel = RiskKernel() 
+        # v12.1: Usa il risk_kernel già inizializzato nel boot (con policy corretta)
+        risk_kernel = self.risk_kernel
         
         # Recupero Stato Portafoglio e Sistema REALE (Snapshot v12.0)
         portfolio = self.risk_tracker.get_portfolio_state()
