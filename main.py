@@ -47,11 +47,12 @@ class ApexReactor:
     Coordina flussi di dati, agenti e strategie in modalit asincrona.
     """
     
-    def __init__(self, mode: str = "mainnet", interval: int = 60, target_symbols: list[str] = None, max_positions: int = 1):
+    def __init__(self, mode: str = "mainnet", interval: int = 60, target_symbols: list[str] = None, max_positions: int = 1, night_mode: bool = False):
         self.mode = mode
         self.interval = interval
         self.target_symbols = target_symbols or ["BTCUSDT"]
         self.max_positions = max_positions
+        self.night_mode = night_mode
         self.running = False
         self.settings = settings.get_settings()
         
@@ -586,14 +587,18 @@ class ApexReactor:
 
     async def run(self):
         """Reattore principale con NightSession safety wrapper."""
-        # v12.5: NightSession override for overnight mode
-        night_config = NightSessionConfig(
-            allowed_symbols=self.target_symbols,
-            max_open_positions=self.max_positions
-        )
-        self.night_session = NightSession(config=night_config)
-        self.settings.WHITELIST_PAIRS = night_config.allowed_symbols
-        logger.info(f"v12.5 NightSession: Whitelist={self.settings.WHITELIST_PAIRS}, MaxTrades={night_config.max_session_trades}, MaxLoss={night_config.max_session_loss_usd}")
+        # v12.5: NightSession override for overnight mode (Optional now)
+        if self.night_mode:
+            night_config = NightSessionConfig(
+                allowed_symbols=self.target_symbols,
+                max_open_positions=self.max_positions
+            )
+            self.night_session = NightSession(config=night_config)
+            self.settings.WHITELIST_PAIRS = night_config.allowed_symbols
+            logger.info(f"v12.5 NightSession ACTIVE: Whitelist={self.settings.WHITELIST_PAIRS}, MaxTrades={night_config.max_session_trades}")
+        else:
+            logger.info(f"FULL APEX ACTIVE: NightSession disabled. Whitelist={self.target_symbols}")
+            self.settings.WHITELIST_PAIRS = self.target_symbols
 
         await self.boot_sequence()
 
@@ -601,7 +606,7 @@ class ApexReactor:
         cycle_failures = 0
         while self.running:
             # Night Session hard stop -> generate report and exit
-            if self.night_session.is_halted:
+            if self.night_session and self.night_session.is_halted:
                 logger.warning(f"NightSession HALT detected: {self.night_session.halt_reason}. Generating morning report.")
                 report = self.night_session.generate_morning_report()
                 print(f"\n=== MORNING REPORT ===")
@@ -628,8 +633,11 @@ class ApexReactor:
                 print(f"[ERROR] Cycle #{cycle_count} failed ({cycle_failures}/3): {e}")
                 if cycle_failures >= 3:
                     logger.error("3 consecutive cycle failures — halting session")
-                    self.night_session._halt("CONSECUTIVE_CYCLE_FAILURES")
-                    continue
+                    if self.night_session:
+                        self.night_session._halt("CONSECUTIVE_CYCLE_FAILURES")
+                        continue
+                    else:
+                        break
 
             # 3. AI Heartbeat (Ogni 10 cicli, solo se Ollama disponibile)
             if self.ollama_available and cycle_count % 10 == 0:
@@ -651,6 +659,7 @@ async def main_async():
     parser.add_argument("--interval", type=float, default=60)
     parser.add_argument("--symbols", default="BTCUSDT")
     parser.add_argument("--max_positions", type=int, default=1)
+    parser.add_argument("--night_mode", action="store_true", help="Abilita il constraint NightSession a 8 ore")
     args = parser.parse_args()
     
     symbol_list = [s.strip() for s in args.symbols.split(",")]
@@ -659,7 +668,8 @@ async def main_async():
         mode=args.mode,
         interval=args.interval,
         target_symbols=symbol_list,
-        max_positions=args.max_positions
+        max_positions=args.max_positions,
+        night_mode=args.night_mode
     )
     try:
         await reactor.run()
