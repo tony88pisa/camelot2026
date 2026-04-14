@@ -43,8 +43,8 @@ class RiskPolicy:
     
     # Tolerances & Thresholds (Can be optimized via self-training loop)
     whitelist_pairs: list[str] = field(default_factory=lambda: [
-        "PEPEUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT",
-        "DOGEUSDT", "XRPUSDT", "ADAUSDT", "LINKUSDT", "AVAXUSDT"
+        "PEPEEUR", "BTCEUR", "ETHEUR", "SOLEUR", "BNBEUR",
+        "DOGEEUR", "XRPEUR", "ADAEUR", "LINKEUR", "AVAXEUR"
     ])
     max_open_trades: int = 5
     max_total_exposure_pct: float = 0.60  # 60%  budget piccolo richiede pi esposizione
