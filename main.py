@@ -332,7 +332,8 @@ class ApexReactor:
                 signal_strength=whale.get("signal_strength", 0.7), # Default 0.7 se no whale
                 regime=regime.name,
                 volatility_score=tech.volatility_score,
-                source="grid_apex"
+                source="grid_apex",
+                metadata={"level_index": action.get("level_index")}
             )
             
             # Calcolo Friction
@@ -461,6 +462,7 @@ class ApexReactor:
                 "symbol": symbol,
                 "action": allocation.action,
                 "usdt_amount": notional,
+                "level_index": arb_decision.candidate.metadata.get("level_index")
             }
             await self._execute_apex_order(action)
 
