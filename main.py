@@ -47,10 +47,10 @@ class ApexReactor:
     Coordina flussi di dati, agenti e strategie in modalit asincrona.
     """
     
-    def __init__(self, mode: str = "mainnet", interval: int = 60, target_symbol: str = "BTCUSDT", max_positions: int = 1):
+    def __init__(self, mode: str = "mainnet", interval: int = 60, target_symbols: list[str] = None, max_positions: int = 1):
         self.mode = mode
         self.interval = interval
-        self.target_symbol = target_symbol
+        self.target_symbols = target_symbols or ["BTCUSDT"]
         self.max_positions = max_positions
         self.running = False
         self.settings = settings.get_settings()
@@ -248,8 +248,10 @@ class ApexReactor:
         if not tech.ok:
             return None
         whale = self.whale_watch.analyze_order_book(order_book)
+        whale_signal = self.whale_watch.get_predator_signal(order_book)
+        
         regime = self.regime_shift.detect_regime(
-            {"trend_score": tech.trend_score, "volatility_score": tech.volatility_score}, 1.0
+            {"trend_score": tech.trend_score, "volatility_score": tech.volatility_score}, whale_signal
         )
         tp_target = tech.recommended_tp_pct * regime.tp_multiplier
         actions = self.grid_engine.evaluate(symbol, tech.price, min_profit_pct=tp_target)
@@ -586,7 +588,7 @@ class ApexReactor:
         """Reattore principale con NightSession safety wrapper."""
         # v12.5: NightSession override for overnight mode
         night_config = NightSessionConfig(
-            allowed_symbols=[self.target_symbol],
+            allowed_symbols=self.target_symbols,
             max_open_positions=self.max_positions
         )
         self.night_session = NightSession(config=night_config)
@@ -647,14 +649,16 @@ async def main_async():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="live")
     parser.add_argument("--interval", type=float, default=60)
-    parser.add_argument("--symbol", default="BTCUSDT")
+    parser.add_argument("--symbols", default="BTCUSDT")
     parser.add_argument("--max_positions", type=int, default=1)
     args = parser.parse_args()
+    
+    symbol_list = [s.strip() for s in args.symbols.split(",")]
     
     reactor = ApexReactor(
         mode=args.mode,
         interval=args.interval,
-        target_symbol=args.symbol,
+        target_symbols=symbol_list,
         max_positions=args.max_positions
     )
     try:
