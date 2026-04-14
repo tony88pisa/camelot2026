@@ -209,6 +209,7 @@ class OllamaClient:
             "model": self.model,
             "messages": messages,
             "stream": False,
+            "keep_alive": -1,
         }
 
         # Opzioni facoltative
