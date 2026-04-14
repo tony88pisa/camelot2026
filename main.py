@@ -255,7 +255,8 @@ class ApexReactor:
         )
         tp_target = tech.recommended_tp_pct * regime.tp_multiplier
         if symbol not in self.grid_engine.grids:
-            budget_cap = (total_cap / max(1, len(self.settings.WHITELIST_PAIRS))) * regime.risk_level
+            # Use max_positions for budget slicing so each grid level clears the 1.5 USDT dust filter
+            budget_cap = (total_cap / max(1, self.max_positions)) * regime.risk_level
             grid_config = GridConfig(
                 symbol=symbol,
                 lower_price=tech.price * (1 - (0.01 * regime.max_drawdown_limit)),
