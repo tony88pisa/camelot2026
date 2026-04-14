@@ -254,6 +254,17 @@ class ApexReactor:
             {"trend_score": tech.trend_score, "volatility_score": tech.volatility_score}, whale_signal
         )
         tp_target = tech.recommended_tp_pct * regime.tp_multiplier
+        if symbol not in self.grid_engine.grids:
+            budget_cap = (total_cap / max(1, len(self.settings.WHITELIST_PAIRS))) * regime.risk_level
+            grid_config = GridConfig(
+                symbol=symbol,
+                lower_price=tech.price * (1 - (0.01 * regime.max_drawdown_limit)),
+                upper_price=tech.price * (1 + (0.01 * regime.tp_multiplier)),
+                num_levels=self.settings.GRID_LEVELS,
+                budget_usdt=budget_cap
+            )
+            self.grid_engine.setup_grid(grid_config)
+            
         actions = self.grid_engine.evaluate(symbol, tech.price, min_profit_pct=tp_target)
         if not actions:
             return None
