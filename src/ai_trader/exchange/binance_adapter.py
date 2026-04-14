@@ -164,6 +164,29 @@ class BinanceAdapter:
             return res["symbols"][0]
         return {}
 
+    def get_symbol_rules(self, symbol: str) -> dict:
+        """
+        Estrae i filtri deterministici per un simbolo specifico.
+        v12.1 - Allineamento con testnet adapter per pre-flight check.
+        """
+        sym_data = self.get_symbol_info(symbol)
+        if not sym_data:
+            return {}
+        
+        filters = {f["filterType"]: f for f in sym_data.get("filters", [])}
+        
+        lot_size = filters.get("LOT_SIZE", {})
+        price_filter = filters.get("PRICE_FILTER", {})
+        notional = filters.get("NOTIONAL", filters.get("MIN_NOTIONAL", {}))
+        
+        return {
+            "stepSize": float(lot_size.get("stepSize", 0.0)),
+            "minQty": float(lot_size.get("minQty", 0.0)),
+            "maxQty": float(lot_size.get("maxQty", 0.0)),
+            "tickSize": float(price_filter.get("tickSize", 0.0)),
+            "minNotional": float(notional.get("minNotional", 1.0))
+        }
+
     def format_quantity(self, symbol: str, quantity: float) -> str:
         """Applica la quantizzazione deterministica basata su LOT_SIZE e MARKET_LOT_SIZE (v10.43)."""
         info = self.get_symbol_info(symbol)
