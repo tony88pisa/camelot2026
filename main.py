@@ -124,11 +124,10 @@ class ApexReactor:
         if not health["ok"]:
             report["errors"].append(f"EXCHANGE_UNHEALTHY: {health.get('status')}")
 
-        # 4. Whitelist Integrity (Night Mode: BTCUSDT + ETHUSDT + PEPEUSDT only)
-        allowed_live_symbols = {"BTCUSDT", "ETHUSDT", "PEPEUSDT"}
+        # 4. Whitelist Integrity
         current_symbols = set(self.settings.WHITELIST_PAIRS)
-        if not current_symbols or not current_symbols.issubset(allowed_live_symbols):
-            report["errors"].append(f"WHITELIST_NOT_IN_ALLOWED_SET:{current_symbols}")
+        if not current_symbols:
+            report["errors"].append("WHITELIST_EMPTY")
 
         # 5. Risk Kernel & Tracker Check
         if not self.risk_kernel or not self.risk_tracker:
