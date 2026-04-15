@@ -28,40 +28,44 @@ class SentimentConnector:
             # In un sistema reale, qui chiameremmo API esterne o faremmo web search.
             # Per v10.4 simuliamo l'aggregazione basata su dati recenti di Aprile 2026.
             
-            # 1. Recupero Fear & Greed (Simulazione April 2026: Extreme Fear)
-            fear_greed_base = 0.15 # 15/100 -> Extreme Fear
+            # 1. Analisi SuperMemory per il simbolo specifico (RAG Alimentato dal Demone gemma2:2b)
+            final_score = 0.5  # Neutral default
+            label = "NEUTRAL"
             
-            # 2. Analisi SuperMemory per il simbolo specifico
-            memory_impact = 0.0
             if self.memory:
-                episodes = self.memory.load_episodes(category="research", limit=20)
-                relevant = [e for e in episodes if symbol in str(e)]
-                if relevant:
-                    # Calcolo semplificato dell'impatto memoria
-                    memory_impact = sum(0.1 if "bullish" in str(e).lower() else -0.1 for e in relevant)
-            
-            # 3. Sentiment Composito
-            final_score = max(0.0, min(1.0, fear_greed_base + memory_impact))
-            
-            # Traduzione in Label
-            label = "EXTREME_FEAR"
-            if final_score > 0.8: label = "EXUBERANCE"
-            elif final_score > 0.6: label = "GREED"
-            elif final_score > 0.4: label = "NEUTRAL"
-            elif final_score > 0.2: label = "FEAR"
-            
+                # Prende gli eventi di sentiment_scan emessi dal daemon negli ultimi 50 log
+                episodes = self.memory.load_episodes(category="research", limit=50)
+                # Strip quote currency per matching (BTCEUR -> BTC, PEPEEUR -> PEPE)
+                base_symbol = symbol.replace("EUR", "").replace("USDT", "")
+                # Filtra per quelli del demone sentiment
+                sentiment_events = [e for e in episodes if e.get("kind") == "sentiment_scan" and e.get("payload", {}).get("symbol") == base_symbol]
+                
+                if sentiment_events:
+                    # Prende il più recente
+                    latest = sentiment_events[-1]
+                    verdict = latest.get("payload", {}).get("sentiment", "NEUTRAL").upper()
+                    
+                    if verdict == "BULLISH":
+                        final_score = 0.8
+                        label = "GREED"
+                    elif verdict == "BEARISH":
+                        final_score = 0.2
+                        label = "FEAR"
+                    else:
+                        final_score = 0.5
+                        label = "NEUTRAL"
+                    
             result = {
                 "symbol": symbol,
                 "sentiment_score": round(final_score, 2),
                 "label": label,
                 "timestamp": datetime.now().isoformat(),
                 "factors": {
-                    "global_fear_greed": fear_greed_base,
-                    "memory_alpha": round(memory_impact, 2)
+                    "memory_rag": label
                 }
             }
             
-            logger.info(f"Sentiment Rilevato per {symbol}", score=final_score, label=label)
+            logger.info(f"Sentiment Rilevato per {symbol}", score=final_score, label=label, source="gemma2:2b_daemon")
             return result
 
         except Exception as e:

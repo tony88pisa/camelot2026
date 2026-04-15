@@ -1,0 +1,30 @@
+{
+  "session_id": "night_1776122966",
+  "started_at": 1776122966.6923256,
+  "elapsed_hours": 1.0151218736171723,
+  "halted": true,
+  "halt_reason": "CONSECUTIVE_CYCLE_FAILURES",
+  "trades_executed": 0,
+  "session_pnl": 0.0,
+  "open_positions_at_end": {},
+  "total_rejections": 0,
+  "halt_events": [
+    {
+      "reason": "CONSECUTIVE_CYCLE_FAILURES",
+      "timestamp": 1776126621.1263132,
+      "trades_executed": 0,
+      "session_pnl": 0.0
+    }
+  ],
+  "trade_log": [],
+  "rejection_log_summary": [],
+  "config_used": {
+    "max_session_trades": 10,
+    "max_session_loss_usd": 3.0,
+    "max_notional_per_trade": 10.0,
+    "allowed_symbols": [
+      "PEPEUSDT"
+    ],
+    "trade_cooldown_sec": 300
+  }
+}

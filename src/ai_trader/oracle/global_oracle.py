@@ -46,22 +46,18 @@ class GlobalOracle:
         sentiment = self.fetch_sentiment()
         market = self.fetch_global_market()
         
-        prompt = f"""
-        Sei l'ORACOLO QUANTISTICO 2026. Analizza i dati correnti:
-        
-        SENTIMENT NEWS: {json.dumps(sentiment.get('results', []), default=str)}
-        GLOBAL MARKET TOP 20: {json.dumps(market.get('data', []), default=str)}
-        
-        OBIETTIVO:
-        1. Qual  il 'Mood' del mercato oggi? (Extreme Fear, Fear, Neutral, Greed, Extreme Greed)
-        2. Quali sono i 3 simboli pi promettenti su cui il bot dovrebbe concentrarsi?
-        3. C' un pericolo imminente rilevato nelle news?
-        
-        Rispondi in formato sintetico per il consumo interno del sistema.
-        """
+        # CAVEMAN PROMPT v14.0 — few token do trick
+        system_prompt = "You are a quant bot. Output ONLY 3 lines as requested. No prose, no intro, no numbering. Just 1. Mood: 2. Top3: 3. Danger:"
+        prompt = f"""SENTIMENT NEWS (last 10): {json.dumps(sentiment.get('results', []), default=str)}
+MARKET TOP 20: {json.dumps(market.get('data', []), default=str)}
+
+Answer 3 lines ONLY:
+1. Mood: [Extreme Fear|Fear|Neutral|Greed|Extreme Greed]
+2. Top3: [SYM1, SYM2, SYM3]
+3. Danger: [yes/no] + max 10 words why"""
         
         logger.info("Generazione Bollettino Oracolare via Gemma 4...")
-        ai_res = self.ollama.chat([{"role": "user", "content": prompt}])
+        ai_res = self.ollama.chat([{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}], temperature=0.0, max_tokens=60)
         
         if ai_res.get("ok"):
             self.last_bulletin = ai_res["message"].get("content", "Nessun dato.")

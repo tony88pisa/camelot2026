@@ -2,76 +2,15 @@
   "PEPEEUR": {
     "config": {
       "symbol": "PEPEEUR",
-      "lower_price": 3e-06,
-      "upper_price": 3.02e-06,
+      "lower_price": 3.0652e-06,
+      "upper_price": 3.1852799999999997e-06,
       "num_levels": 5,
-      "budget_usdt": 22.513107918914997,
-      "created_at": "2026-04-13T16:34:37.578520+00:00"
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:34.957341+00:00"
     },
     "levels": [
       {
-        "price": 3e-06,
-        "index": 0,
-        "status": "bought",
-        "buy_price": 2.9900000000000006e-06,
-        "quantity": 1505016.0,
-        "buy_order_id": "72648699",
-        "sell_order_id": ""
-      },
-      {
-        "price": 3.01e-06,
-        "index": 1,
-        "status": "bought",
-        "buy_price": 2.9900000000000006e-06,
-        "quantity": 1505016.0,
-        "buy_order_id": "72648700",
-        "sell_order_id": ""
-      },
-      {
-        "price": 3.01e-06,
-        "index": 2,
-        "status": "bought",
-        "buy_price": 2.9900000000000006e-06,
-        "quantity": 1505016.0,
-        "buy_order_id": "72648701",
-        "sell_order_id": ""
-      },
-      {
-        "price": 3.01e-06,
-        "index": 3,
-        "status": "bought",
-        "buy_price": 2.9900000000000006e-06,
-        "quantity": 1505016.0,
-        "buy_order_id": "72648702",
-        "sell_order_id": ""
-      },
-      {
-        "price": 3.02e-06,
-        "index": 4,
-        "status": "bought",
-        "buy_price": 2.9900000000000006e-06,
-        "quantity": 1505016.0,
-        "buy_order_id": "72648704",
-        "sell_order_id": ""
-      }
-    ],
-    "total_invested": 22.4999892,
-    "total_profit": 0.0,
-    "total_trades": 5,
-    "active": true
-  },
-  "SOLEUR": {
-    "config": {
-      "symbol": "SOLEUR",
-      "lower_price": 68.5693,
-      "upper_price": 71.25552,
-      "num_levels": 5,
-      "budget_usdt": 0.29871565,
-      "created_at": "2026-04-13T18:39:50.046465+00:00"
-    },
-    "levels": [
-      {
-        "price": 68.837922,
+        "price": 3.08e-06,
         "index": 0,
         "status": "empty",
         "buy_price": 0.0,
@@ -80,7 +19,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 69.375166,
+        "price": 3.1e-06,
         "index": 1,
         "status": "empty",
         "buy_price": 0.0,
@@ -89,7 +28,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 69.91241,
+        "price": 3.13e-06,
         "index": 2,
         "status": "empty",
         "buy_price": 0.0,
@@ -98,7 +37,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 70.449654,
+        "price": 3.15e-06,
         "index": 3,
         "status": "empty",
         "buy_price": 0.0,
@@ -107,7 +46,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 70.986898,
+        "price": 3.17e-06,
         "index": 4,
         "status": "empty",
         "buy_price": 0.0,
@@ -124,15 +63,15 @@
   "BTCEUR": {
     "config": {
       "symbol": "BTCEUR",
-      "lower_price": 59726.5181,
-      "upper_price": 62066.319840000004,
+      "lower_price": 61203.3237,
+      "upper_price": 63600.97968,
       "num_levels": 5,
-      "budget_usdt": 0.29871565,
-      "created_at": "2026-04-13T18:39:50.747656+00:00"
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:35.485949+00:00"
     },
     "levels": [
       {
-        "price": 59960.498274,
+        "price": 61443.089298,
         "index": 0,
         "status": "empty",
         "buy_price": 0.0,
@@ -141,7 +80,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 60428.458622,
+        "price": 61922.620494,
         "index": 1,
         "status": "empty",
         "buy_price": 0.0,
@@ -150,7 +89,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 60896.41897,
+        "price": 62402.15169,
         "index": 2,
         "status": "empty",
         "buy_price": 0.0,
@@ -159,7 +98,7 @@
         "sell_order_id": ""
       },
       {
-        "price": 61364.379318,
+        "price": 62881.682886,
         "index": 3,
         "status": "empty",
         "buy_price": 0.0,
@@ -168,7 +107,495 @@
         "sell_order_id": ""
       },
       {
-        "price": 61832.339666,
+        "price": 63361.214082,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "ETHEUR": {
+    "config": {
+      "symbol": "ETHEUR",
+      "lower_price": 1953.4733,
+      "upper_price": 2030.0011200000001,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:36.011991+00:00"
+    },
+    "levels": [
+      {
+        "price": 1961.126082,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 1976.431646,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 1991.73721,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 2007.042774,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 2022.348338,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "SOLEUR": {
+    "config": {
+      "symbol": "SOLEUR",
+      "lower_price": 70.6257,
+      "upper_price": 73.39248,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:36.539053+00:00"
+    },
+    "levels": [
+      {
+        "price": 70.902378,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 71.455734,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 72.00909,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 72.562446,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 73.115802,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "BNBEUR": {
+    "config": {
+      "symbol": "BNBEUR",
+      "lower_price": 512.6576,
+      "upper_price": 525.7356,
+      "num_levels": 5,
+      "budget_usdt": 1.1588960933333332,
+      "created_at": "2026-04-14T11:10:37.071114+00:00"
+    },
+    "levels": [
+      {
+        "price": 513.9654,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 516.581,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 519.1966,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 521.8122,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 524.4278,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "DOGEEUR": {
+    "config": {
+      "symbol": "DOGEEUR",
+      "lower_price": 0.077697,
+      "upper_price": 0.0807408,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:37.603151+00:00"
+    },
+    "levels": [
+      {
+        "price": 0.07800138,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.07861014,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.0792189,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.07982766,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.08043642,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "XRPEUR": {
+    "config": {
+      "symbol": "XRPEUR",
+      "lower_price": 1.1278190000000001,
+      "upper_price": 1.1720016,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:38.136031+00:00"
+    },
+    "levels": [
+      {
+        "price": 1.13223726,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 1.14107378,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 1.1499103,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 1.15874682,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 1.16758334,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "ADAEUR": {
+    "config": {
+      "symbol": "ADAEUR",
+      "lower_price": 0.200402,
+      "upper_price": 0.20825280000000002,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:38.662728+00:00"
+    },
+    "levels": [
+      {
+        "price": 0.20118708,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.20275724,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.2043274,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.20589756,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 0.20746772,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "LINKEUR": {
+    "config": {
+      "symbol": "LINKEUR",
+      "lower_price": 7.5563,
+      "upper_price": 7.85232,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:39.185843+00:00"
+    },
+    "levels": [
+      {
+        "price": 7.585902,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.645106,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.70431,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.763514,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.822718,
+        "index": 4,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      }
+    ],
+    "total_invested": 0.0,
+    "total_profit": 0.0,
+    "total_trades": 0,
+    "active": true
+  },
+  "AVAXEUR": {
+    "config": {
+      "symbol": "AVAXEUR",
+      "lower_price": 7.740600000000001,
+      "upper_price": 8.043840000000001,
+      "num_levels": 5,
+      "budget_usdt": 2.897240233333333,
+      "created_at": "2026-04-14T11:10:39.712332+00:00"
+    },
+    "levels": [
+      {
+        "price": 7.770924,
+        "index": 0,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.831572,
+        "index": 1,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.89222,
+        "index": 2,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 7.952868,
+        "index": 3,
+        "status": "empty",
+        "buy_price": 0.0,
+        "quantity": 0.0,
+        "buy_order_id": "",
+        "sell_order_id": ""
+      },
+      {
+        "price": 8.013516,
         "index": 4,
         "status": "empty",
         "buy_price": 0.0,

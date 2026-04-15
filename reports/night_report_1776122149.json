@@ -1,0 +1,24 @@
+{
+  "session_id": "night_1776122149",
+  "started_at": 1776122149.8367257,
+  "elapsed_hours": 0.011359107626809015,
+  "halted": false,
+  "halt_reason": "",
+  "trades_executed": 0,
+  "session_pnl": 0.0,
+  "open_positions_at_end": {},
+  "total_rejections": 0,
+  "halt_events": [],
+  "trade_log": [],
+  "rejection_log_summary": [],
+  "config_used": {
+    "max_session_trades": 10,
+    "max_session_loss_usd": 3.0,
+    "max_notional_per_trade": 10.0,
+    "allowed_symbols": [
+      "BTCUSDT",
+      "ETHUSDT"
+    ],
+    "trade_cooldown_sec": 300
+  }
+}

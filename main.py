@@ -1,9 +1,9 @@
 # main.py
-# 2026-04-13 - Apex Predator v11.0: High-Frequency Async Reactor Core
+# 2026-04-14 - Apex Predator v13.0: DCA Intelligent + RAG Sentiment
 """
-QUANTUM HUNTER v11.0 - APEX PREDATOR Edition
-Il culmine dell'ingegneria finanziaria autonoma. 
-Architettura asincrona, event-driven, con sensing L2 e regime-awareness.
+QUANTUM HUNTER v13.0 - DCA INTELLIGENT Edition
+Strategia DCA potenziata dal Sentiment RAG (gemma2:2b).
+Compra sulla paura, vendi sull'avidità. Grid mantenuta per sell management.
 """
 
 import asyncio
@@ -20,10 +20,12 @@ from ai_trader.exchange.binance_adapter import BinanceAdapter
 from ai_trader.exchange.binance_streamer import BinanceStreamer
 from ai_trader.analysis.market_analyzer import MarketAnalyzer
 from ai_trader.strategy.grid_engine import GridEngine, GridConfig
+from ai_trader.strategy.dca_engine import DCAEngine, DCAAction
 from ai_trader.strategy.hunter_agent import HunterAgent
 from ai_trader.risk.paladin_agent import PaladinAgent
 from ai_trader.agents.whale_watch_agent import WhaleWatchAgent
 from ai_trader.agents.regime_shift_agent import RegimeShiftAgent
+from ai_trader.strategy.tactical_commander import TacticalCommander
 from ai_trader.brain.brain_runtime import BrainRuntime
 from ai_trader.brain.brain_types import BrainContext # v11.4: Import context types
 from ai_trader.memory.episode_store import EpisodeStore
@@ -76,15 +78,22 @@ class ApexReactor:
             api_secret=self.adapter.api_secret or ""
         )
         
+        from ai_trader.analysis.sentiment_connector import SentimentConnector
+        
         self.analyzer = MarketAnalyzer(self.adapter)
         self.grid_engine = GridEngine()
         self.episode_store = EpisodeStore()
+        
+        # v13.0: DCA Intelligent Engine (strategia primaria)
+        self.dca_engine = DCAEngine(base_tranche_eur=12.0, cooldown_minutes=15)
+        self.sentiment = SentimentConnector(supermemory=self.episode_store)
         
         # Inizializzazione Agenti
         self.hunter = HunterAgent(self.adapter, self.analyzer)
         self.paladin = PaladinAgent(self.adapter)
         self.whale_watch = WhaleWatchAgent()
         self.regime_shift = RegimeShiftAgent()
+        self.tactical_commander = TacticalCommander()
         
         # v11.3: Titan Brain Configuration (Optional - deterministic mode if unavailable)
         self.ollama = OllamaClient()
@@ -208,7 +217,7 @@ class ApexReactor:
         logger.info("ApexReactor: Shutdown completato.")
 
     async def process_cycle(self):
-        """Ciclo principale con Learning & Routing Multi-Asset (Phase 7)."""
+        """Ciclo principale v13.0: DCA Intelligent + RAG Sentiment."""
         # Night Session hard stop check
         if self.night_session and self.night_session.is_halted:
             logger.warning(f"NightSession HALTED: {self.night_session.halt_reason}. Skipping cycle.")
@@ -216,28 +225,138 @@ class ApexReactor:
 
         summary = self.adapter.get_account_summary()
         active_capital = summary.get("free_quote_balance", 0.0)
+        
+        # === AUTONOMOUS LIQUIDITY RECOVERY (v14.0) ===
+        if active_capital < 6.0:
+            await self._scavenge_liquidity(summary)
+            # Ricarica i saldi dopo il recovery
+            summary = self.adapter.get_account_summary()
+            active_capital = summary.get("free_quote_balance", 0.0)
+
         self.risk_tracker.initialize_from_summary(summary)
 
-        # Portfolio Routing Loop (Fase 7)
-        all_symbol_decisions = []
-        for symbol in self.settings.WHITELIST_PAIRS:
-            decision = await self._evaluate_symbol_decision(symbol, active_capital)
-            if decision:
-                all_symbol_decisions.append(decision)
+        # === DCA INTELLIGENT LOOP (v14.0 Hybrid MoE - Sovereign Hunter) ===
+        best_action: DCAAction | None = None
+        best_confidence = -1.0
 
-        routed = self.portfolio_router.route(all_symbol_decisions)
-        if routed:
-            winner = routed[0]
-            others = self.portfolio_router.identify_routed_away(all_symbol_decisions, winner)
-            for d in others:
-                self._handle_rejection(d, mode="ROUTED_AWAY")
-            await self._allocate_and_execute(winner, active_capital)
+        # Disattiva Whitelist: Lascia che Hunter esplori le top 15 monete per volume
+        opportunities = self.hunter.identify_opportunities(top_n=15, budget=active_capital)
+        target_symbols = [opp["symbol"] for opp in opportunities]
+        
+        # Aggiungi le monete in cui siamo già esposti per non perdere le finestre di TAKE_PROFIT
+        for sym, pos in self.dca_engine.positions.items():
+            if pos.total_qty > 0 and sym not in target_symbols:
+                target_symbols.append(sym)
+
+        logger.info(f"Hunter Scavenger attivo: Valutazione di {len(target_symbols)} mercati autonomamente.")
+
+        for symbol in target_symbols:
+            # 1. Fetch Dati Dai Sensori
+            rag = self.sentiment.get_market_sentiment(symbol)
+            sentiment_label = rag.get("label", "NEUTRAL")
+            
+            ticker = self.adapter.get_ticker_price(symbol)
+            current_price = ticker.get("price", 0.0)
+            if current_price <= 0:
+                continue
+                
+            order_book = self.adapter.get_order_book(symbol)
+            if not order_book:
+                continue
+                
+            tech = self.analyzer.analyze(symbol)
+            if not tech.ok:
+                continue
+                
+            whale_data = self.whale_watch.analyze_order_book(order_book)
+            whale_signal = self.whale_watch.get_predator_signal(order_book)
+            regime = self.regime_shift.detect_regime(
+                {"trend_score": tech.trend_score, "volatility_score": tech.volatility_score}, 
+                whale_signal
+            )
+
+            # 2. Sintesi del Cervello Tattico (Gemma2:2b Caveman mode)
+            tactical_cmd = self.tactical_commander.evaluate_tactical_state(
+                symbol=symbol,
+                sentiment=sentiment_label,
+                whale=whale_data,
+                regime=regime.name,
+                tech={"rsi": tech.rsi, "trend_score": tech.trend_score}
+            )
+
+            # 3. Trasformazione matematica deterministica (Esecutore DCA)
+            dca_action = self.dca_engine.evaluate(
+                symbol=symbol,
+                current_price=current_price,
+                tactical_command=tactical_cmd,
+                free_balance_eur=active_capital,
+                tp_pct=5.0
+            )
+
+            logger.info(f"DCA [{symbol}]: {dca_action.action} | {dca_action.reason} | Confidence: {dca_action.confidence:.2f}")
+
+            # 4. Seleziona l'azione con confidenza massima
+            if dca_action.action in ["BUY", "SELL"] and dca_action.confidence > best_confidence:
+                best_action = dca_action
+                best_confidence = dca_action.confidence
+
+        # 5. Esegui la migliore azione DCA trovata
+        if best_action:
+            await self._execute_dca_order(best_action)
         else:
-            for d in all_symbol_decisions:
-                self._handle_rejection(d, mode="NO_TRADE")
+            logger.info("DCA CYCLE: Nessuna azione qualificata. HOLD su tutte le posizioni.")
 
         # Review a T+60m per Counterfactual Learning
         self._maybe_evaluate_past_rejections()
+
+    async def _scavenge_liquidity(self, summary: dict):
+        """
+        Scansiona il wallet e vende i residui non whitelistati (es. vecchi PEPE/ADA)
+        se il valore supera il minimo di Binance (5.5€) per finanziare le operazioni DCA.
+        """
+        # Estrai i nomi base delle coin DCA salvate + posizioni attive del Hunter
+        core_assets = set(p.replace("EUR", "").replace("USDT", "") for p in self.settings.WHITELIST_PAIRS)
+        # Proteggi anche le coin in cui il DCA Engine ha posizioni aperte
+        for sym in self.dca_engine.positions:
+            base = sym.replace("EUR", "").replace("USDT", "")
+            core_assets.add(base)
+        
+        balances = summary.get("balances", [])
+        prices = self.adapter.get_all_prices()
+        
+        for b in balances:
+            asset = b["asset"]
+            free_qty = float(b["free"])
+            
+            if free_qty <= 0:
+                continue
+            
+            # Non toccare valute Fiat o Monete Core del DCA/Hunter
+            if asset in ["EUR", "USDT"] or asset in core_assets:
+                continue
+                
+            # Calcola il controvalore in EUR
+            symbol = f"{asset}EUR"
+            eur_val = 0.0
+            if symbol in prices:
+                eur_val = free_qty * prices[symbol]
+            elif f"{asset}USDT" in prices and "USDTEUR" in prices:
+                eur_val = free_qty * prices[f"{asset}USDT"] * prices["USDTEUR"]
+                
+            if eur_val > 5.5:
+                # Binance supporta vendite sopra i 5.0€ circa
+                logger.warning(
+                    f"DCA EMERGENCY LIQUIDATION: Vendo legacy asset {asset} "
+                    f"(valore: {eur_val:.2f} EUR) per recuperare liquidit\u00e0."
+                )
+                action = {
+                    "symbol": symbol,
+                    "action": "SELL",
+                    "quantity": free_qty,
+                    "level_index": None
+                }
+                # Delega all'adapter via pipeline principale per accounting e validazione
+                await self._execute_apex_order(action)
 
     async def _evaluate_symbol_decision(self, symbol, total_cap):
         """Valuta economicamente un singolo simbolo senza eseguire azioni."""
@@ -318,22 +437,36 @@ class ApexReactor:
         # Recuperiamo Order Book fresco per Friction Brain
         order_book = self.adapter.get_order_book(symbol)
         
+        current_price = tech.price
+        actions = self.grid_engine.evaluate(symbol, current_price, min_profit_pct=regime.tp_multiplier)
+        if not actions:
+            return
+            
         for action in actions:
             if action["action"] not in ["BUY", "SELL"]: continue
             
-            # Stima Edge: Per la griglia, l'edge atteso  il TP target PCT
+            # Stima Edge: Per la griglia, l'edge atteso è il TP target PCT
+            tp_target = tech.recommended_tp_pct * regime.tp_multiplier
             expected_edge = tp_target / 100.0
+            
+            # Fetch Daemon RAG sentiment instantly from memory
+            rag_sentiment = self.sentiment.get_market_sentiment(symbol)
+            rag_score = rag_sentiment.get("sentiment_score", 0.5)
+            
+            # Blend whale pressure with background RAG intelligence
+            base_signal = whale.get("signal_strength", 0.7)
+            blended_signal = (base_signal * 0.7) + (rag_score * 0.3)
             
             cand = OpportunityCandidate(
                 symbol=symbol,
                 side=action["action"],
                 entry_price=current_price,
                 expected_edge_pct=expected_edge,
-                signal_strength=whale.get("signal_strength", 0.7), # Default 0.7 se no whale
+                signal_strength=blended_signal,
                 regime=regime.name,
                 volatility_score=tech.volatility_score,
                 source="grid_apex",
-                metadata={"level_index": action.get("level_index")}
+                metadata={"level_index": action.get("level_index"), "rag_label": rag_sentiment.get("label")}
             )
             
             # Calcolo Friction
@@ -381,10 +514,16 @@ class ApexReactor:
             "filters": {}
         }
 
-        # 1. Verifica Whitelist
-        if symbol not in self.settings.WHITELIST_PAIRS:
-            result["error"] = f"Simbolo {symbol} non in whitelist"
-            return result
+        # 1. Verifica Simbolo Autorizzato (Sovereign Hunter v14.0)
+        # Permetti: Whitelist statica + qualsiasi coin in portafoglio DCA attivo
+        allowed_symbols = set(self.settings.WHITELIST_PAIRS)
+        allowed_symbols.update(self.dca_engine.positions.keys())
+        if symbol not in allowed_symbols:
+            # Ultima chance: se è una coppia EUR valida su Binance, lasciala passare
+            symbol_info = self.adapter.get_symbol_info(symbol)
+            if not symbol_info:
+                result["error"] = f"Simbolo {symbol} non riconosciuto su Binance"
+                return result
             
         # 2. Verifica Stato Adapter
         health = self.adapter.health_check()
@@ -471,6 +610,60 @@ class ApexReactor:
                 self.night_session.record_trade_executed(symbol, allocation.action, notional)
         else:
             self._handle_rejection(arb_decision, mode="LOW_ALLOCATION")
+
+    async def _execute_dca_order(self, dca_action: DCAAction):
+        """
+        v13.0: Esegue un ordine DCA Intelligente.
+        Converte la decisione DCA nel formato action e la passa al pipeline di esecuzione.
+        """
+        symbol = dca_action.symbol
+        side = dca_action.action  # BUY o SELL
+        eur_amount = dca_action.eur_amount
+
+        logger.info(
+            f"DCA EXECUTE: {side} {symbol} | EUR: {eur_amount:.2f} | "
+            f"Tattica: {dca_action.tactical_command} (Confidence: {dca_action.confidence:.2f}) | "
+            f"Reason: {dca_action.reason}"
+        )
+
+        if side == "BUY":
+            action = {
+                "symbol": symbol,
+                "action": "BUY",
+                "usdt_amount": eur_amount,  # In EUR per le coppie EUR
+                "level_index": None  # DCA non usa livelli di griglia
+            }
+            await self._execute_apex_order(action)
+
+        elif side == "SELL":
+            # Per il SELL recupera la quantità dalla posizione DCA
+            pos = self.dca_engine.positions.get(symbol)
+            if pos and pos.total_qty > 0:
+                sell_qty = pos.total_qty * 0.3  # Vendi il 30% (take profit parziale)
+                action = {
+                    "symbol": symbol,
+                    "action": "SELL",
+                    "quantity": sell_qty,
+                    "level_index": None
+                }
+                await self._execute_apex_order(action)
+            else:
+                logger.warning(f"DCA SELL skipped: No position for {symbol}")
+
+        # Registra in episodio per tracking
+        self.episode_store.append_episode(
+            "trading", "dca_decision",
+            source="dca_engine",
+            tags=[symbol, side, dca_action.tactical_command],
+            payload={
+                "symbol": symbol,
+                "side": side,
+                "eur_amount": eur_amount,
+                "tactical_command": dca_action.tactical_command,
+                "confidence": dca_action.confidence,
+                "reason": dca_action.reason
+            }
+        )
 
     def _handle_rejection(self, decision, mode="NO_TRADE"):
         """Gestisce il rifiuto di un'opportunita e lo logga in EpisodeStore."""
@@ -578,9 +771,14 @@ class ApexReactor:
                     self.risk_tracker.record_order_fill(symbol, side, (executed_qty * avg_price), executed_qty)
                     
                     if side == "BUY":
-                        self.grid_engine.record_buy(symbol, action["level_index"], avg_price, executed_qty)
+                        if action.get("level_index") is not None:
+                            self.grid_engine.record_buy(symbol, action["level_index"], avg_price, executed_qty)
+                        # v13.0: Registra anche nel DCA Engine
+                        self.dca_engine.record_buy(symbol, executed_qty, avg_price, exec_qty)
                     else:
-                        self.grid_engine.record_sell(symbol, action["level_index"], avg_price, executed_qty)
+                        if action.get("level_index") is not None:
+                            self.grid_engine.record_sell(symbol, action["level_index"], avg_price, executed_qty)
+                        self.dca_engine.record_sell(symbol, executed_qty, avg_price, executed_qty * avg_price)
                     logger.info(f"APEX ORDER SUCCESS: {symbol} {side} Filled: {executed_qty} @ {avg_price}")
                 else:
                     self.risk_tracker.record_order_failure("zero_fill")

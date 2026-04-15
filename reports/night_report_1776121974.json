@@ -1,0 +1,40 @@
+{
+  "session_id": "night_1776121974",
+  "started_at": 1776121974.0962458,
+  "elapsed_hours": 1.0216898388332791e-06,
+  "halted": false,
+  "halt_reason": "",
+  "trades_executed": 1,
+  "session_pnl": 0.05,
+  "open_positions_at_end": {},
+  "total_rejections": 0,
+  "halt_events": [],
+  "trade_log": [
+    {
+      "timestamp": 1776121974.0978243,
+      "symbol": "BTCUSDT",
+      "side": "BUY",
+      "notional": 10.0,
+      "trade_number": 1,
+      "session_pnl_at_time": 0.0
+    },
+    {
+      "timestamp": 1776121974.09887,
+      "symbol": "BTCUSDT",
+      "side": "CLOSE",
+      "realized_pnl": 0.05,
+      "session_pnl_after": 0.05
+    }
+  ],
+  "rejection_log_summary": [],
+  "config_used": {
+    "max_session_trades": 2,
+    "max_session_loss_usd": 1.0,
+    "max_notional_per_trade": 10.0,
+    "allowed_symbols": [
+      "BTCUSDT",
+      "ETHUSDT"
+    ],
+    "trade_cooldown_sec": 0
+  }
+}

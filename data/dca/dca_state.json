@@ -1,0 +1,24 @@
+{
+  "BTCEUR": {
+    "symbol": "BTCEUR",
+    "total_qty": 0.00057,
+    "total_cost": 38.7,
+    "avg_cost": 67894.73684210527,
+    "num_buys": 6,
+    "num_sells": 0,
+    "realized_pnl": 0.0,
+    "last_action": "BUY",
+    "last_action_time": 1776243050.1729593
+  },
+  "SOLEUR": {
+    "symbol": "SOLEUR",
+    "total_qty": 0.156,
+    "total_cost": 11.36,
+    "avg_cost": 72.82051282051282,
+    "num_buys": 2,
+    "num_sells": 0,
+    "realized_pnl": 0.0,
+    "last_action": "BUY",
+    "last_action_time": 1776188866.2331333
+  }
+}

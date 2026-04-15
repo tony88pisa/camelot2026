@@ -36,27 +36,12 @@ class MacroOracle:
         """Gemma 4 processa il bollettino mondiale e assegna un punteggio e una direzione."""
         news = self.fetch_world_news()
         
-        prompt = f"""
-        Sei il GENERALE STRATEGICO della Quantum Oracle Station. 
-        Analizza la situazione geopolitica del 12 Aprile 2026:
-        
-        BOLLETTINO INTERNAZIONALE:
-        {news}
-        
-        OBIETTIVO:
-        1. Assegna un 'Geopolitical Risk Score' (1-10).
-        2. Identifica il 'Market Mode' (WAR_HEDGE, RECOVERY, DE_RISKING, GROWTH).
-        3. Suggerisci la lista monete ottimale in 'suggested_whitelist' (es: ["BTCUSDT", "XRPUSDT"]).
-        4. Scrivi una 'Sentenza del Generale' (massimo 2 righe) per la dashboard.
-        
-        Rispondi ESCLUSIVAMENTE in formato JSON:
-        {{
-            "risk_score": int,
-            "market_mode": "string",
-            "suggested_whitelist": ["list"],
-            "general_sentence": "string"
-        }}
-        """
+        # CAVEMAN PROMPT v14.0 — few token do trick
+        prompt = f"""GEOPOLITICAL BRIEF:
+{news}
+
+OUTPUT JSON ONLY. No prose. No markdown.
+{{"risk_score": 1-10, "market_mode": "WAR_HEDGE|RECOVERY|DE_RISKING|GROWTH", "suggested_whitelist": ["BTCUSDT","..."], "general_sentence": "max 15 words"}}"""
         
         logger.info("L'Agente Profeta sta analizzando la Geopolitica Mondiale...")
         ai_res = self.ollama.chat([{"role": "user", "content": prompt}])

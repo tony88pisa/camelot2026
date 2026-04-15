@@ -1,0 +1,30 @@
+{
+  "trades": [
+    {
+      "symbol": "PEPETO",
+      "entry_time": "2026-04-14T12:55:42.159976+00:00",
+      "budget_eur": 20.0,
+      "rating": "HIGH",
+      "status": "open",
+      "notes": "Gem Scanner paper trade - Rating: HIGH"
+    },
+    {
+      "symbol": "DOGE",
+      "entry_time": "2026-04-14T12:55:42.161981+00:00",
+      "budget_eur": 10.0,
+      "rating": "MEDIUM",
+      "status": "open",
+      "notes": "Gem Scanner paper trade - Rating: MEDIUM"
+    },
+    {
+      "symbol": "ST",
+      "entry_time": "2026-04-14T12:55:42.163250+00:00",
+      "budget_eur": 10.0,
+      "rating": "MEDIUM",
+      "status": "open",
+      "notes": "Gem Scanner paper trade - Rating: MEDIUM"
+    }
+  ],
+  "virtual_spent": 40.0,
+  "last_update": "2026-04-14T12:55:42.163250+00:00"
+}
